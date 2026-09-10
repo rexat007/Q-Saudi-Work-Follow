@@ -1,0 +1,330 @@
+{
+  "entities": {
+    "Project": {
+      "title": "Project",
+      "description": "Multi-tenant root organization entity representing a distinct construction or logistics project in Saudi Arabia.",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "nameAr": { "type": "string", "maxLength": 200 },
+        "nameEn": { "type": "string", "maxLength": 200 },
+        "clientName": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["ACTIVE", "SUSPENDED", "ARCHIVED"] },
+        "zatcaTaxNumber": { "type": "string", "maxLength": 15, "pattern": "^[0-9]{15}$" },
+        "vatRatePercent": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["projectId", "nameAr", "status", "createdAt", "createdBy", "updatedAt", "updatedBy"]
+    },
+    "Carrier": {
+      "title": "Carrier",
+      "description": "Certified logistics carrier company under contract with the project.",
+      "type": "object",
+      "properties": {
+        "carrierId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "name": { "type": "string", "maxLength": 200 },
+        "normalizedName": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE"] },
+        "projectId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "companyNameAr": { "type": "string", "maxLength": 200 },
+        "commercialRegistrationNo": { "type": "string", "maxLength": 10, "pattern": "^[0-9]{10}$" },
+        "transportLicenseNo": { "type": "string", "maxLength": 30 },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["carrierId", "name", "normalizedName", "status", "createdAt", "createdBy", "updatedAt", "updatedBy"]
+    },
+    "PricingRule": {
+      "title": "PricingRule",
+      "description": "Server-evaluated pricing tariff defining rates, demurrage, and VAT.",
+      "type": "object",
+      "properties": {
+        "pricingRuleId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "projectId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "carrierId": { "type": "string", "maxLength": 128 },
+        "materialId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 150 },
+        "pricingModel": { "type": "string", "enum": ["PER_TON", "PER_TRIP", "PER_KM", "FLAT_RATE"] },
+        "baseRateSAR": { "type": "number" },
+        "demurrageRatePerHourSAR": { "type": "number" },
+        "freeTimeHours": { "type": "number" },
+        "vatApplicable": { "type": "boolean" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["pricingRuleId", "projectId", "pricingModel", "baseRateSAR", "isActive", "createdAt", "createdBy", "updatedAt", "updatedBy"]
+    },
+    "Material": {
+      "title": "Material",
+      "description": "Construction or aggregate material hauled during trips.",
+      "type": "object",
+      "properties": {
+        "materialId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "name": { "type": "string", "maxLength": 150 },
+        "normalizedName": { "type": "string", "maxLength": 150 },
+        "code": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE"] },
+        "projectId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "nameAr": { "type": "string", "maxLength": 150 },
+        "unitOfMeasure": { "type": "string", "enum": ["TON", "M3", "TRIP"] },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["materialId", "name", "normalizedName", "code", "status", "createdAt", "createdBy", "updatedAt", "updatedBy"]
+    },
+    "Truck": {
+      "title": "Truck",
+      "description": "Heavy transport vehicle registered with KSA plate numbers and official weights.",
+      "type": "object",
+      "properties": {
+        "truckId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "plate": { "type": "string", "maxLength": 50 },
+        "normalizedPlate": { "type": "string", "maxLength": 50 },
+        "carrierId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE"] },
+        "projectId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "plateNumberAr": { "type": "string", "maxLength": 20 },
+        "plateNumberEn": { "type": "string", "maxLength": 20 },
+        "truckType": { "type": "string", "enum": ["TIPPER_32M3", "TRAILER_24M", "FLATBED", "DUMPER"] },
+        "tareWeightKg": { "type": "number" },
+        "maxGrossWeightKg": { "type": "number" },
+        "legalPayloadLimitKg": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["truckId", "plate", "normalizedPlate", "carrierId", "status", "createdAt", "createdBy", "updatedAt", "updatedBy"]
+    },
+    "Driver": {
+      "title": "Driver",
+      "description": "Field driver operating the vehicle with verified national or Iqama ID.",
+      "type": "object",
+      "properties": {
+        "driverId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "name": { "type": "string", "maxLength": 150 },
+        "normalizedName": { "type": "string", "maxLength": 150 },
+        "phone": { "type": "string", "maxLength": 20 },
+        "idNumber": { "type": "string", "maxLength": 10, "pattern": "^[0-9]{10}$" },
+        "carrierId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE"] },
+        "projectId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "fullNameAr": { "type": "string", "maxLength": 150 },
+        "nationalOrIqamaId": { "type": "string", "maxLength": 10, "pattern": "^[0-9]{10}$" },
+        "licenseNumber": { "type": "string", "maxLength": 30 },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["driverId", "name", "normalizedName", "phone", "idNumber", "carrierId", "status", "createdAt", "createdBy", "updatedAt", "updatedBy"]
+    },
+    "User": {
+      "title": "User",
+      "description": "System operator with role-based access control inside the platform.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "email": { "type": "string", "maxLength": 150 },
+        "fullName": { "type": "string", "maxLength": 150 },
+        "role": { "type": "string", "enum": ["PROJECT_ADMIN", "DISPATCHER", "FINANCE_AUDITOR", "DRIVER", "VIEWER"] },
+        "assignedProjectIds": { "type": "array" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["userId", "email", "role", "isActive", "createdAt", "createdBy", "updatedAt", "updatedBy"]
+    },
+    "Trip": {
+      "title": "Trip",
+      "description": "Core logistical trip container containing immutable historical snapshots and financial finalization.",
+      "type": "object",
+      "properties": {
+        "tripId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "tripNumber": { "type": "string", "maxLength": 50 },
+        "projectId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "carrierId": { "type": "string", "maxLength": 128 },
+        "truckId": { "type": "string", "maxLength": 128 },
+        "driverId": { "type": "string", "maxLength": 128 },
+        "materialId": { "type": "string", "maxLength": 128 },
+        "pricingRuleId": { "type": "string", "maxLength": 128 },
+        "status": {
+          "type": "string",
+          "enum": [
+            "DRAFT", "DISPATCHED", "AT_ORIGIN", "LOADING", "WEIGHED_ORIGIN",
+            "IN_TRANSIT", "AT_DESTINATION", "WEIGHED_DESTINATION", "OFFLOADED",
+            "COMPLETED", "REJECTED", "CANCELLED"
+          ]
+        },
+        "clientUUID": { "type": "string", "maxLength": 128 },
+        "hasExceptions": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["tripId", "tripNumber", "projectId", "status", "createdAt", "createdBy", "updatedAt", "updatedBy"]
+    },
+    "TripEvent": {
+      "title": "TripEvent",
+      "description": "Append-only immutable event recording status transitions and physical weighbridge captures.",
+      "type": "object",
+      "properties": {
+        "eventId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "tripId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "projectId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "eventType": { "type": "string", "maxLength": 80 },
+        "statusResulting": { "type": "string", "maxLength": 50 },
+        "idempotencyKey": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["eventId", "tripId", "projectId", "eventType", "createdAt", "createdBy", "updatedAt", "updatedBy"]
+    },
+    "TripException": {
+      "title": "TripException",
+      "description": "Operational anomaly or weight discrepancy blocking automatic closure.",
+      "type": "object",
+      "properties": {
+        "exceptionId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "tripId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "projectId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "type": { "type": "string", "enum": ["OVERWEIGHT_VIOLATION", "WEIGHT_DISCREPANCY", "ROUTE_DEVIATION", "EXCESSIVE_TRANSIT_TIME", "DAMAGED_CARGO", "VEHICLE_BREAKDOWN", "OFF_HOURS_MOVEMENT"] },
+        "severity": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "BLOCKING"] },
+        "status": { "type": "string", "enum": ["OPEN", "INVESTIGATING", "WAIVED", "RESOLVED"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["exceptionId", "tripId", "projectId", "type", "severity", "status", "createdAt", "createdBy", "updatedAt", "updatedBy"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable security and accounting audit log recording all administrative modifications.",
+      "type": "object",
+      "properties": {
+        "auditLogId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "projectId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "entityType": { "type": "string", "maxLength": 50 },
+        "entityId": { "type": "string", "maxLength": 128 },
+        "action": { "type": "string", "maxLength": 50 },
+        "correlationId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["auditLogId", "projectId", "entityType", "entityId", "action", "createdAt", "createdBy", "updatedAt", "updatedBy"]
+    },
+    "SyncOperation": {
+      "title": "SyncOperation",
+      "description": "Offline-to-online idempotency ledger tracking synchronization mutations.",
+      "type": "object",
+      "properties": {
+        "operationId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "projectId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "clientOperationUUID": { "type": "string", "maxLength": 128 },
+        "targetCollection": { "type": "string", "maxLength": 100 },
+        "targetDocId": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "enum": ["PROCESSED", "FAILED", "REJECTED"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["operationId", "projectId", "clientOperationUUID", "status", "createdAt", "createdBy", "updatedAt", "updatedBy"]
+    },
+    "ImportBatch": {
+      "title": "ImportBatch",
+      "description": "Batch processing ledger for bulk operational imports (e.g. initial fleet, tickets).",
+      "type": "object",
+      "properties": {
+        "batchId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "projectId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "batchType": { "type": "string", "enum": ["FLEET_IMPORT", "DRIVER_IMPORT", "WEIGHBRIDGE_IMPORT", "LEGACY_TRIPS"] },
+        "totalRecords": { "type": "number" },
+        "processedRecords": { "type": "number" },
+        "failedRecords": { "type": "number" },
+        "status": { "type": "string", "enum": ["PENDING", "PROCESSING", "COMPLETED", "FAILED"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["batchId", "projectId", "batchType", "totalRecords", "status", "createdAt", "createdBy", "updatedAt", "updatedBy"]
+    }
+  },
+  "firestore": {
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Root tenant documents defining individual construction projects."
+    },
+    "/projects/{projectId}/carriers/{carrierId}": {
+      "schema": "Carrier",
+      "description": "Authorized transport contractors for the project."
+    },
+    "/projects/{projectId}/pricing_rules/{pricingRuleId}": {
+      "schema": "PricingRule",
+      "description": "Server-side pricing matrix definitions."
+    },
+    "/projects/{projectId}/materials/{materialId}": {
+      "schema": "Material",
+      "description": "Authorized aggregate and construction materials."
+    },
+    "/projects/{projectId}/trucks/{truckId}": {
+      "schema": "Truck",
+      "description": "Carrier vehicle fleet with tare and gross weight limits."
+    },
+    "/projects/{projectId}/drivers/{driverId}": {
+      "schema": "Driver",
+      "description": "Field drivers with validated Saudi national/Iqama IDs."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "System users and permission assignments."
+    },
+    "/projects/{projectId}/trips/{tripId}": {
+      "schema": "Trip",
+      "description": "Core trip documents with historical snapshots and finalized financials."
+    },
+    "/projects/{projectId}/trips/{tripId}/events/{eventId}": {
+      "schema": "TripEvent",
+      "description": "Sequential immutable event stream for trip lifecycle."
+    },
+    "/projects/{projectId}/trips/{tripId}/exceptions/{exceptionId}": {
+      "schema": "TripException",
+      "description": "Discrepancies and violation exceptions on trips."
+    },
+    "/audit_logs/{auditLogId}": {
+      "schema": "AuditLog",
+      "description": "System-wide immutable audit trail for security and regulatory compliance."
+    },
+    "/projects/{projectId}/sync_operations/{operationId}": {
+      "schema": "SyncOperation",
+      "description": "Idempotency tokens preventing duplicated offline mutations."
+    },
+    "/projects/{projectId}/import_batches/{batchId}": {
+      "schema": "ImportBatch",
+      "description": "Batch processing metadata for bulk logistical ingestion."
+    }
+  }
+}

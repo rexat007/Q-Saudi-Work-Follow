@@ -1,0 +1,220 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isAuditStampedCreate(data) {
+      return data.createdAt is timestamp &&
+             data.createdBy is string && data.createdBy.size() > 0 &&
+             data.updatedAt is timestamp &&
+             data.updatedBy is string && data.updatedBy.size() > 0;
+    }
+
+    function isAuditStampedUpdate(data) {
+      return data.updatedAt is timestamp &&
+             data.updatedBy is string && data.updatedBy.size() > 0 &&
+             data.createdAt == existing().createdAt &&
+             data.createdBy == existing().createdBy;
+    }
+
+    // Projects collection
+    match /projects/{projectId} {
+      allow get: if isSignedIn() && isValidId(projectId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(projectId) && 
+                       isAuditStampedCreate(incoming()) &&
+                       incoming().projectId == projectId &&
+                       incoming().nameAr is string && incoming().nameAr.size() > 0 &&
+                       incoming().nameAr.size() <= 200;
+      allow update: if isSignedIn() && isValidId(projectId) &&
+                       isAuditStampedUpdate(incoming()) &&
+                       incoming().projectId == existing().projectId;
+      allow delete: if false; // Soft-delete only via status
+
+      // Carriers subcollection
+      match /carriers/{carrierId} {
+        allow get, list: if isSignedIn() && isValidId(projectId);
+        allow create: if isSignedIn() && isValidId(carrierId) &&
+                         isAuditStampedCreate(incoming()) &&
+                         incoming().carrierId == carrierId &&
+                         incoming().projectId == projectId;
+        allow update: if isSignedIn() && isValidId(carrierId) &&
+                         isAuditStampedUpdate(incoming()) &&
+                         incoming().carrierId == existing().carrierId &&
+                         incoming().projectId == existing().projectId;
+        allow delete: if false;
+      }
+
+      // Pricing Rules subcollection
+      match /pricing_rules/{pricingRuleId} {
+        allow get, list: if isSignedIn() && isValidId(projectId);
+        allow create: if isSignedIn() && isValidId(pricingRuleId) &&
+                         isAuditStampedCreate(incoming()) &&
+                         incoming().pricingRuleId == pricingRuleId &&
+                         incoming().projectId == projectId &&
+                         incoming().baseRateSAR is number;
+        allow update: if isSignedIn() && isValidId(pricingRuleId) &&
+                         isAuditStampedUpdate(incoming()) &&
+                         incoming().pricingRuleId == existing().pricingRuleId &&
+                         incoming().projectId == existing().projectId;
+        allow delete: if false;
+      }
+
+      // Materials subcollection
+      match /materials/{materialId} {
+        allow get, list: if isSignedIn() && isValidId(projectId);
+        allow create: if isSignedIn() && isValidId(materialId) &&
+                         isAuditStampedCreate(incoming()) &&
+                         incoming().materialId == materialId &&
+                         incoming().projectId == projectId;
+        allow update: if isSignedIn() && isValidId(materialId) &&
+                         isAuditStampedUpdate(incoming()) &&
+                         incoming().materialId == existing().materialId &&
+                         incoming().projectId == existing().projectId;
+        allow delete: if false;
+      }
+
+      // Trucks subcollection
+      match /trucks/{truckId} {
+        allow get, list: if isSignedIn() && isValidId(projectId);
+        allow create: if isSignedIn() && isValidId(truckId) &&
+                         isAuditStampedCreate(incoming()) &&
+                         incoming().truckId == truckId &&
+                         incoming().projectId == projectId &&
+                         incoming().carrierId is string && incoming().carrierId.size() > 0;
+        allow update: if isSignedIn() && isValidId(truckId) &&
+                         isAuditStampedUpdate(incoming()) &&
+                         incoming().truckId == existing().truckId &&
+                         incoming().projectId == existing().projectId;
+        allow delete: if false;
+      }
+
+      // Drivers subcollection
+      match /drivers/{driverId} {
+        allow get, list: if isSignedIn() && isValidId(projectId);
+        allow create: if isSignedIn() && isValidId(driverId) &&
+                         isAuditStampedCreate(incoming()) &&
+                         incoming().driverId == driverId &&
+                         incoming().projectId == projectId &&
+                         incoming().carrierId is string && incoming().carrierId.size() > 0;
+        allow update: if isSignedIn() && isValidId(driverId) &&
+                         isAuditStampedUpdate(incoming()) &&
+                         incoming().driverId == existing().driverId &&
+                         incoming().projectId == existing().projectId;
+        allow delete: if false;
+      }
+
+      // Trips subcollection
+      match /trips/{tripId} {
+        allow get, list: if isSignedIn() && isValidId(projectId);
+        allow create: if isSignedIn() && isValidId(tripId) &&
+                         isAuditStampedCreate(incoming()) &&
+                         incoming().tripId == tripId &&
+                         incoming().projectId == projectId;
+        allow update: if isSignedIn() && isValidId(tripId) &&
+                         isAuditStampedUpdate(incoming()) &&
+                         incoming().tripId == existing().tripId &&
+                         incoming().projectId == existing().projectId;
+        allow delete: if false;
+
+        // Trip Events
+        match /events/{eventId} {
+          allow get, list: if isSignedIn();
+          allow create: if isSignedIn() && isValidId(eventId) &&
+                           isAuditStampedCreate(incoming()) &&
+                           incoming().eventId == eventId &&
+                           incoming().tripId == tripId &&
+                           incoming().projectId == projectId;
+          allow update, delete: if false; // Immutable Event Stream
+        }
+
+        // Trip Exceptions
+        match /exceptions/{exceptionId} {
+          allow get, list: if isSignedIn();
+          allow create: if isSignedIn() && isValidId(exceptionId) &&
+                           isAuditStampedCreate(incoming()) &&
+                           incoming().exceptionId == exceptionId &&
+                           incoming().tripId == tripId &&
+                           incoming().projectId == projectId;
+          allow update: if isSignedIn() && isValidId(exceptionId) &&
+                           isAuditStampedUpdate(incoming()) &&
+                           incoming().exceptionId == existing().exceptionId &&
+                           incoming().tripId == existing().tripId &&
+                           incoming().projectId == existing().projectId;
+          allow delete: if false;
+        }
+      }
+
+      // Sync Operations
+      match /sync_operations/{operationId} {
+        allow get, list: if isSignedIn() && isValidId(projectId);
+        allow create: if isSignedIn() && isValidId(operationId) &&
+                         isAuditStampedCreate(incoming()) &&
+                         incoming().operationId == operationId &&
+                         incoming().projectId == projectId;
+        allow update: if isSignedIn() && isValidId(operationId) &&
+                         isAuditStampedUpdate(incoming()) &&
+                         incoming().operationId == existing().operationId &&
+                         incoming().projectId == existing().projectId;
+        allow delete: if false;
+      }
+
+      // Import Batches
+      match /import_batches/{batchId} {
+        allow get, list: if isSignedIn() && isValidId(projectId);
+        allow create: if isSignedIn() && isValidId(batchId) &&
+                         isAuditStampedCreate(incoming()) &&
+                         incoming().batchId == batchId &&
+                         incoming().projectId == projectId;
+        allow update: if isSignedIn() && isValidId(batchId) &&
+                         isAuditStampedUpdate(incoming()) &&
+                         incoming().batchId == existing().batchId &&
+                         incoming().projectId == existing().projectId;
+        allow delete: if false;
+      }
+    }
+
+    // Global Users collection
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(userId) &&
+                       isAuditStampedCreate(incoming()) &&
+                       incoming().userId == userId;
+      allow update: if isSignedIn() && isValidId(userId) &&
+                       isAuditStampedUpdate(incoming()) &&
+                       incoming().userId == existing().userId;
+      allow delete: if false;
+    }
+
+    // Global Audit Logs collection (Strict Append-Only)
+    match /audit_logs/{auditLogId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(auditLogId) &&
+                       isAuditStampedCreate(incoming()) &&
+                       incoming().auditLogId == auditLogId;
+      allow update, delete: if false; // Strictly Immutable
+    }
+  }
+}
