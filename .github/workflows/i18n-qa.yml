@@ -21,8 +21,12 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Type check
         run: bun run lint
+      - name: Locale key parity
+        run: bun run i18n:keys
       - name: i18n hardcoded-string audit
         run: bun run i18n:audit
+      - name: Build verification
+        run: bun run build
       - name: Upload i18n audit report
         if: always()
         uses: actions/upload-artifact@v4
@@ -31,5 +35,7 @@ jobs:
           path: |
             docs/I18N_AUDIT_REPORT.md
             docs/I18N_AUDIT_REPORT.json
+            docs/I18N_MISSING_KEYS.md
+            docs/I18N_MISSING_KEYS.json
       - name: i18n strict merge gate
         run: bun run i18n:audit:strict
