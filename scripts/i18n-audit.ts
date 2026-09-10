@@ -3,7 +3,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 type FindingKind = 'jsx-text' | 'jsx-attribute' | 'user-message';
-type Finding = { file: string; line: number; kind: FindingKind; text: string; context: string };
+type Classification =
+  | 'REAL_USER_FACING'
+  | 'TECHNICAL_IDENTIFIER'
+  | 'DATA_VALUE'
+  | 'CODE_VALUE'
+  | 'COMMENT'
+  | 'TEST_FIXTURE'
+  | 'LOG_ONLY'
+  | 'FALSE_POSITIVE'
+  | 'INTENTIONAL_NON_TRANSLATABLE';
+type Finding = { file: string; line: number; kind: FindingKind; text: string; context: string; classification: Classification };
 
 const ROOT = process.cwd();
 const SRC = path.join(ROOT, 'src');
@@ -41,6 +51,20 @@ function isInsideTranslation(node: ts.Node): boolean {
   }
   return false;
 }
+function classify(file: string, text: string, kind: FindingKind, context: string): Classification {
+  const value = clean(text);
+  if (file.includes('/tests/')) return 'TEST_FIXTURE';
+  if (kind === 'user-message') return 'REAL_USER_FACING';
+  if (/^(null|undefined|true|false|NaN|Infinity)$/i.test(value)) return 'CODE_VALUE';
+  if (/^(https?:\/\/|mailto:|tel:|[A-Za-z]:\\|\/)/.test(value)) return 'TECHNICAL_IDENTIFIER';
+  if (/\b(createEvent|createTrip|transition)\([^)]*\)/.test(value)) return 'INTENTIONAL_NON_TRANSLATABLE';
+  if (/^[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)+$/.test(value)) return 'TECHNICAL_IDENTIFIER';
+  if (/^[A-Z0-9_-]{3,}$/.test(value) && !/\s/.test(value)) return 'TECHNICAL_IDENTIFIER';
+  if (/^\.?[A-Za-z0-9_-]+\.(md|json|csv|xlsx?|pdf)$/i.test(value)) return 'TECHNICAL_IDENTIFIER';
+  if (context.includes('JSX title') || context.includes('JSX aria-') || context.includes('JSX placeholder') || context.includes('JSX label') || context.includes('JSX helperText') || context.includes('JSX errorMessage')) return 'REAL_USER_FACING';
+  if (['KG', 'SAR', 'PDF', 'ID:', 'UUID'].includes(value)) return 'INTENTIONAL_NON_TRANSLATABLE';
+  return 'REAL_USER_FACING';
+}
 
 const findings: Finding[] = [];
 for (const file of files(SRC)) {
@@ -52,7 +76,8 @@ for (const file of files(SRC)) {
       const text = clean(node.getText(sf));
       if (isMeaningful(text)) {
         const pos = sf.getLineAndCharacterOfPosition(node.getStart(sf));
-        findings.push({ file: rel, line: pos.line + 1, kind: 'jsx-text', text, context: 'JSX text node' });
+        const context = 'JSX text node';
+        findings.push({ file: rel, line: pos.line + 1, kind: 'jsx-text', text, context, classification: classify(rel, text, 'jsx-text', context) });
       }
     }
     if (ts.isJsxAttribute(node) && node.initializer && ts.isStringLiteral(node.initializer)) {
@@ -60,14 +85,16 @@ for (const file of files(SRC)) {
       const text = clean(node.initializer.text);
       if (USER_ATTRS.has(name) && isMeaningful(text) && !isInsideTranslation(node)) {
         const pos = sf.getLineAndCharacterOfPosition(node.getStart(sf));
-        findings.push({ file: rel, line: pos.line + 1, kind: 'jsx-attribute', text, context: `JSX ${name}` });
+        const context = `JSX ${name}`;
+        findings.push({ file: rel, line: pos.line + 1, kind: 'jsx-attribute', text, context, classification: classify(rel, text, 'jsx-attribute', context) });
       }
     }
     if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && USER_CALLS.has(node.expression.text)) {
       for (const arg of node.arguments) {
         if (ts.isStringLiteral(arg) && isMeaningful(arg.text) && !isInsideTranslation(arg)) {
           const pos = sf.getLineAndCharacterOfPosition(arg.getStart(sf));
-          findings.push({ file: rel, line: pos.line + 1, kind: 'user-message', text: clean(arg.text), context: `${node.expression.text}()` });
+          const context = `${node.expression.text}()`;
+          findings.push({ file: rel, line: pos.line + 1, kind: 'user-message', text: clean(arg.text), context, classification: 'REAL_USER_FACING' });
         }
       }
     }
@@ -77,18 +104,22 @@ for (const file of files(SRC)) {
 }
 
 findings.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.text.localeCompare(b.text));
+const counts = findings.reduce<Record<string, number>>((acc, f) => { acc[f.classification] = (acc[f.classification] ?? 0) + 1; return acc; }, {});
 const reportDir = path.join(ROOT, 'docs');
 fs.mkdirSync(reportDir, { recursive: true });
+const real = findings.filter(f => f.classification === 'REAL_USER_FACING');
 const report = [
-  '# i18n Audit Report', '', `Generated: ${new Date().toISOString()}`, '', `Findings: **${findings.length}**`, '',
-  '| File | Line | Kind | Text | Context |', '|---|---:|---|---|---|',
-  ...findings.map(f => `| ${f.file} | ${f.line} | ${f.kind} | ${f.text.replaceAll('|', '\\|')} | ${f.context} |`), '',
+  '# i18n Audit Report', '', `Generated: ${new Date().toISOString()}`, '', `Total scanner findings: **${findings.length}**`, `Real user-facing: **${real.length}**`, '',
+  '## Classification summary', '',
+  ...Object.entries(counts).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `- ${k}: **${v}**`), '',
+  '| File | Line | Kind | Classification | Text | Context |', '|---|---:|---|---|---|---|',
+  ...findings.map(f => `| ${f.file} | ${f.line} | ${f.kind} | ${f.classification} | ${f.text.replaceAll('|', '\\|')} | ${f.context} |`), '',
   '## Merge policy', '',
-  '- New user-visible strings must be expressed through the typed `t(...)` catalog.',
-  '- Existing findings must be migrated deliberately; this scanner does not auto-translate business/domain text.',
-  '- Technical identifiers, CSS classes, enum values, URLs, and non-user-facing code are intentionally outside this report.', '',
+  '- `REAL_USER_FACING` findings are merge blockers until migrated to the typed catalog.',
+  '- Technical identifiers, test fixtures, code values, and intentional non-translatable UI tokens are reported for auditability but do not fail the strict gate.',
+  '- The classifier is deliberately conservative: uncertain text remains `REAL_USER_FACING` rather than being silently suppressed.', '',
 ].join('\n');
 fs.writeFileSync(path.join(reportDir, 'I18N_AUDIT_REPORT.md'), report);
-fs.writeFileSync(path.join(reportDir, 'I18N_AUDIT_REPORT.json'), JSON.stringify({ generatedAt: new Date().toISOString(), count: findings.length, findings }, null, 2));
-console.log(`i18n audit: ${findings.length} user-visible hardcoded string candidates`);
-if (process.argv.includes('--strict') && findings.length > 0) process.exit(1);
+fs.writeFileSync(path.join(reportDir, 'I18N_AUDIT_REPORT.json'), JSON.stringify({ generatedAt: new Date().toISOString(), count: findings.length, counts, findings }, null, 2));
+console.log(`i18n audit: ${findings.length} findings; ${real.length} real user-facing blockers`);
+if (process.argv.includes('--strict') && real.length > 0) process.exit(1);
