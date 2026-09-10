@@ -22,4 +22,14 @@ jobs:
       - name: Type check
         run: bun run lint
       - name: i18n hardcoded-string audit
+        run: bun run i18n:audit
+      - name: Upload i18n audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-audit-report
+          path: |
+            docs/I18N_AUDIT_REPORT.md
+            docs/I18N_AUDIT_REPORT.json
+      - name: i18n strict merge gate
         run: bun run i18n:audit:strict
