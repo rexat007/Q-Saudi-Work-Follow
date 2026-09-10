@@ -11,7 +11,8 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "i18n:audit": "tsx scripts/i18n-audit.ts",
-    "i18n:audit:strict": "tsx scripts/i18n-audit.ts --strict"
+    "i18n:audit:strict": "tsx scripts/i18n-audit.ts --strict",
+    "i18n:keys": "tsx scripts/i18n-keys.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
