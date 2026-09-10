@@ -15,10 +15,15 @@ import {
   TransitionContext,
   TransitionPayload,
   TripLifecycleEvent,
-  TripAuditLog
+  TripAuditLog,
+  UnloadingSearchResult,
+  UnloadingCompletionParams,
+  UnloadingCompletionResult
 } from '../types/tripEngine';
+import { TripExceptionEntity } from '../types/entities';
 import { SAMPLE_QUALITY_CONTEXT } from '../data/sampleQualityData';
 import { tripStateMachine, STATE_TRANSITIONS } from './tripStateMachine.service';
+import { exceptionEngine } from './exceptionEngine.service';
 
 // Initial Mock/In-Memory trips database populated with realistic high-fidelity Saudi logistics data
 const INITIAL_TRIP_SEED: TripRecord[] = [
@@ -362,6 +367,14 @@ import { MasterPricingRule, MASTER_PRICING_RULES } from '../data/masterPricingRu
 export type { MasterPricingRule };
 export { MASTER_PRICING_RULES };
 
+let tripSequenceCounter = 1000;
+
+export function generateUniqueTripId(): string {
+  tripSequenceCounter += 1;
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  return `TRP-${Date.now()}-${tripSequenceCounter}-${rand}`;
+}
+
 class TripEngineService {
   private trips: TripRecord[] = [...INITIAL_TRIP_SEED];
 
@@ -377,6 +390,13 @@ class TripEngineService {
 
   getTripById(tripId: string): TripRecord | undefined {
     return this.trips.find(t => t.tripId === tripId);
+  }
+
+  /**
+   * Removes a trip by ID (useful for unit tests cleanup).
+   */
+  removeTrip(tripId: string): void {
+    this.trips = this.trips.filter(t => t.tripId !== tripId);
   }
 
   /**
@@ -588,7 +608,7 @@ class TripEngineService {
     const material = context.knownMaterials.find(m => m.materialId === params.materialId);
 
     const nowIso = new Date().toISOString();
-    const tripId = `TRP-${Date.now()}`;
+    const tripId = params.tripId || generateUniqueTripId();
     const tripSerial = `TRP-NEOM-${Math.floor(1000 + Math.random() * 9000)}`;
     const ticketId = params.ticketId || `WB-TKT-${Math.floor(100000 + Math.random() * 900000)}`;
 
@@ -658,8 +678,13 @@ class TripEngineService {
       }
     };
 
-    // Prepend to trips
-    this.trips = [newTrip, ...this.trips];
+    // Prepend or update in trips (guarantees no duplicate tripId)
+    const existingIdx = this.trips.findIndex(t => t.tripId === newTrip.tripId);
+    if (existingIdx !== -1) {
+      this.trips[existingIdx] = newTrip;
+    } else {
+      this.trips = [newTrip, ...this.trips];
+    }
 
     // Seed state machine events & audit log for this new trip
     try {
@@ -764,7 +789,7 @@ class TripEngineService {
     }
 
     const nowIso = new Date().toISOString();
-    const tripId = `TRP-${Date.now()}`;
+    const tripId = params.tripId || generateUniqueTripId();
     const tripSerial = `TRP-NEOM-${Math.floor(1000 + Math.random() * 9000)}`;
     const ticketId = params.ticketId || `WB-TKT-${Math.floor(100000 + Math.random() * 900000)}`;
 
@@ -908,8 +933,13 @@ class TripEngineService {
       }
     );
 
-    // Add final trip to service in-memory store
-    this.trips = [transitionResult.updatedTrip, ...this.trips];
+    // Add or update final trip to service in-memory store (guarantees no duplicate tripId)
+    const existingIndex = this.trips.findIndex(t => t.tripId === transitionResult.updatedTrip.tripId);
+    if (existingIndex !== -1) {
+      this.trips[existingIndex] = transitionResult.updatedTrip;
+    } else {
+      this.trips = [transitionResult.updatedTrip, ...this.trips];
+    }
 
     return {
       trip: transitionResult.updatedTrip,
@@ -1037,6 +1067,427 @@ class TripEngineService {
     tripStateMachine.assertNoDirectStatusMutation(currentTrip, clientProposedTrip);
   }
 
+  // =========================================================================
+  // UNLOADING STATION WORKFLOW & GOVERNANCE METHODS
+  // =========================================================================
+
+  private exceptions: Map<string, TripExceptionEntity[]> = new Map();
+
+  /**
+   * Search for Unloading Station strictly adhering to required priority:
+   * 1. Primary: tripSerial
+   * 2. Then: ticketId
+   * 3. Then: truckId
+   * 
+   * Strict Rule: لا تستخدم truckPlate وحده لتحديد الرحلة.
+   * Outcomes:
+   * - 0 => NOT_FOUND
+   * - 1 => CONTINUE
+   * - > 1 => AMBIGUOUS
+   */
+  searchTripForUnloading(rawQuery: string): UnloadingSearchResult {
+    const q = (rawQuery || '').trim();
+    if (!q) {
+      return {
+        status: 'NOT_FOUND',
+        count: 0,
+        messageAr: 'الرجاء إدخال معيار بحث للرحلة'
+      };
+    }
+
+    const qLower = q.toLowerCase();
+
+    // Check if user entered truck plate ONLY
+    const isMatchingPlate = SAMPLE_QUALITY_CONTEXT.knownTrucks.some(
+      t => t.plate.toLowerCase() === qLower || t.plate.replace(/\s+/g, '') === qLower.replace(/\s+/g, '')
+    ) || this.trips.some(
+      t => t.entitySnapshots?.truck?.plateNumberAr?.toLowerCase() === qLower ||
+           t.entitySnapshots?.truck?.plateNumberAr?.replace(/\s+/g, '') === qLower.replace(/\s+/g, '')
+    );
+
+    // If query matches plate, BUT does NOT match any tripSerial, ticketId, or truckId:
+    const matchesTripSerialCheck = this.trips.some(t => t.tripSerial.toLowerCase() === qLower);
+    const matchesTicketIdCheck = this.trips.some(t => t.ticketId.toLowerCase() === qLower);
+    const matchesTruckIdCheck = this.trips.some(t => t.truckId.toLowerCase() === qLower);
+
+    if (isMatchingPlate && !matchesTripSerialCheck && !matchesTicketIdCheck && !matchesTruckIdCheck) {
+      return {
+        status: 'PLATE_ONLY_PROHIBITED',
+        count: 0,
+        messageAr: 'حظر رقابي: لا يُسمح باستخدام لوحة الشاحنة (truckPlate) وحدها لتحديد الرحلة منعاً للتداخل بين رحلات الشاحنة المتعددة عبر الورديات. يُرجى البحث برقم الرحلة (tripSerial) أو رقم التذكرة (ticketId) أو معرف الشاحنة (truckId).'
+      };
+    }
+
+    // Step 1: Primary Search: tripSerial
+    const matchByTripSerial = this.trips.filter(t => t.tripSerial.toLowerCase() === qLower);
+    if (matchByTripSerial.length > 0) {
+      if (matchByTripSerial.length === 1) {
+        return {
+          status: 'CONTINUE',
+          matchedBy: 'tripSerial',
+          trip: matchByTripSerial[0],
+          count: 1,
+          messageAr: `تم العثور على الرحلة بالبحث الأساسي (tripSerial: ${matchByTripSerial[0].tripSerial})`
+        };
+      } else {
+        return {
+          status: 'AMBIGUOUS',
+          matchedBy: 'tripSerial',
+          candidateTrips: matchByTripSerial,
+          count: matchByTripSerial.length,
+          messageAr: `تنبيه غامض (AMBIGUOUS): تم العثور على أكثر من رحلة (${matchByTripSerial.length}) مطابقة لنفس الرقم التسلسلي. يلزم تحديد الرحلة يدوياً لمنع الخطأ.`
+        };
+      }
+    }
+
+    // Step 2: Then: ticketId
+    const matchByTicketId = this.trips.filter(t => t.ticketId.toLowerCase() === qLower);
+    if (matchByTicketId.length > 0) {
+      if (matchByTicketId.length === 1) {
+        return {
+          status: 'CONTINUE',
+          matchedBy: 'ticketId',
+          trip: matchByTicketId[0],
+          count: 1,
+          messageAr: `تم العثور على الرحلة برقم تذكرة الميزان (ticketId: ${matchByTicketId[0].ticketId})`
+        };
+      } else {
+        return {
+          status: 'AMBIGUOUS',
+          matchedBy: 'ticketId',
+          candidateTrips: matchByTicketId,
+          count: matchByTicketId.length,
+          messageAr: `تنبيه غامض (AMBIGUOUS): تم العثور على أكثر من رحلة (${matchByTicketId.length}) بنفس رقم التذكرة. يلزم تحديد الرحلة يدوياً.`
+        };
+      }
+    }
+
+    // Step 3: Then: truckId
+    const matchByTruckId = this.trips.filter(t => t.truckId.toLowerCase() === qLower);
+    if (matchByTruckId.length > 0) {
+      if (matchByTruckId.length === 1) {
+        return {
+          status: 'CONTINUE',
+          matchedBy: 'truckId',
+          trip: matchByTruckId[0],
+          count: 1,
+          messageAr: `تم العثور على رحلة واحدة مطابقة لمعرف الشاحنة (truckId: ${matchByTruckId[0].truckId})`
+        };
+      } else {
+        return {
+          status: 'AMBIGUOUS',
+          matchedBy: 'truckId',
+          candidateTrips: matchByTruckId,
+          count: matchByTruckId.length,
+          messageAr: `تنبيه غامض (AMBIGUOUS): تم العثور على ${matchByTruckId.length} رحلات مرتبطة بالشاحنة (${q}). يُحظر التحديد التلقائي؛ الرجاء اختيار الرحلة المستهدفة أدناه.`
+        };
+      }
+    }
+
+    // Step 4: 0 => NOT_FOUND
+    return {
+      status: 'NOT_FOUND',
+      count: 0,
+      messageAr: `لم يتم العثور على أي رحلة مطابقة للمعايير (tripSerial: ${q} / ticketId / truckId)`
+    };
+  }
+
+  /**
+   * Unloading Station Step 1: Upon Arrival (عند الوصول)
+   * IN_TRANSIT -> ARRIVED
+   */
+  processUnloadingArrival(
+    tripId: string, 
+    arrivalTime?: string, 
+    actorContext?: { actorId?: string; actorName?: string; actorRole?: TripActorRole }
+  ): { trip: TripRecord; event: TripLifecycleEvent; auditLog: TripAuditLog } {
+    const tripIndex = this.trips.findIndex(t => t.tripId === tripId);
+    if (tripIndex === -1) {
+      throw new Error(`الرحلة (${tripId}) غير موجودة.`);
+    }
+    const currentTrip = this.trips[tripIndex];
+
+    const context: TransitionContext = {
+      actorId: actorContext?.actorId || 'GATE-SECURITY-01',
+      actorRole: actorContext?.actorRole || 'SITE_RECEIVER',
+      actorName: actorContext?.actorName || 'مراقب البوابة ومسؤول الوصول',
+      projectId: currentTrip.projectId,
+      reason: 'توثيق وصول الشاحنة إلى موقع الاستلام/التفريغ'
+    };
+
+    const nowIso = arrivalTime || new Date().toISOString();
+    const result = tripStateMachine.transition(currentTrip, 'ARRIVED', context, {
+      arrivalTime: nowIso
+    });
+
+    this.trips[tripIndex] = result.updatedTrip;
+    return { trip: result.updatedTrip, event: result.event, auditLog: result.auditLog };
+  }
+
+  /**
+   * Unloading Station Step 2: Upon Starting Unload (عند بدء التفريغ)
+   * ARRIVED -> UNLOADING
+   */
+  processUnloadingStart(
+    tripId: string, 
+    unloaderId: string, 
+    actorContext?: { actorId?: string; actorName?: string; actorRole?: TripActorRole }
+  ): { trip: TripRecord; event: TripLifecycleEvent; auditLog: TripAuditLog } {
+    const tripIndex = this.trips.findIndex(t => t.tripId === tripId);
+    if (tripIndex === -1) {
+      throw new Error(`الرحلة (${tripId}) غير موجودة.`);
+    }
+    const currentTrip = this.trips[tripIndex];
+
+    const context: TransitionContext = {
+      actorId: unloaderId || actorContext?.actorId || 'REC-INSPECTOR-01',
+      actorRole: actorContext?.actorRole || 'SITE_RECEIVER',
+      actorName: actorContext?.actorName || 'مستلم ومفتش منصة التفريغ',
+      projectId: currentTrip.projectId,
+      reason: 'دخول الشاحنة إلى منصة التفريغ وبدء تفريغ الحمولة'
+    };
+
+    const result = tripStateMachine.transition(currentTrip, 'UNLOADING', context, {
+      unloaderId
+    });
+
+    this.trips[tripIndex] = result.updatedTrip;
+    return { trip: result.updatedTrip, event: result.event, auditLog: result.auditLog };
+  }
+
+  /**
+   * Unloading Station Step 3 & 4:
+   * Upon entering destNetWeight:
+   * Server calculates: varianceWeight = destNetWeight - netWeight
+   * And updates:
+   * - unloaderId
+   * - arrivalTime
+   * - unloadTime
+   * - destNetWeight
+   * - varianceWeight
+   * 
+   * Then: UNLOADING -> COMPLETED
+   * 
+   * If variance is outside tolerance:
+   * Creates real Exception entity (not merely a UI color!).
+   */
+  completeUnloadingWithVariance(params: UnloadingCompletionParams): UnloadingCompletionResult {
+    const tripIndex = this.trips.findIndex(t => t.tripId === params.tripId);
+    if (tripIndex === -1) {
+      throw new Error(`الرحلة (${params.tripId}) غير موجودة.`);
+    }
+    const trip = this.trips[tripIndex];
+
+    if (params.destNetWeight === undefined || params.destNetWeight === null || params.destNetWeight <= 0) {
+      throw new Error(`الوزن الصافي في موقع التفريغ (destNetWeight) يجب أن يكون قيمة موجبة (تم إدخال: ${params.destNetWeight}).`);
+    }
+
+    // 1. Server strictly calculates: varianceWeight = destNetWeight - netWeight
+    const calculatedVariance = Math.round(params.destNetWeight - trip.netWeight);
+    const variancePercent = trip.netWeight > 0 
+      ? parseFloat(((calculatedVariance / trip.netWeight) * 100).toFixed(2))
+      : 0;
+
+    // 2. Tolerance calculation (Standard 1.5% or 500 kg max threshold)
+    const tolerancePercent = params.tolerancePercent ?? 1.5;
+    const toleranceKg = params.toleranceKg ?? 500;
+    const thresholdFromPercent = Math.round((trip.netWeight * tolerancePercent) / 100);
+    const effectiveToleranceKg = Math.max(toleranceKg, thresholdFromPercent);
+
+    const isOutOfTolerance = Math.abs(calculatedVariance) > effectiveToleranceKg;
+
+    const nowIso = new Date().toISOString();
+    const arrivalTime = params.arrivalTime || trip.arrivalTime || nowIso;
+    const unloadTime = params.unloadTime || nowIso;
+    const unloaderId = params.unloaderId || trip.unloaderId || 'REC-INSPECTOR-01';
+
+    // 3. Centralized State Machine transition: UNLOADING -> COMPLETED
+    const context: TransitionContext = {
+      actorId: unloaderId,
+      actorRole: 'SITE_RECEIVER',
+      actorName: params.actorName || 'مستلم ومفتش الموقع',
+      projectId: trip.projectId,
+      reason: params.notes || `إتمام التفريغ وتوثيق صافي وزن الوصول (${params.destNetWeight.toLocaleString()} كجم) وحساب فارق الوزن (${calculatedVariance.toLocaleString()} كجم)`
+    };
+
+    const payload: TransitionPayload = {
+      destNetWeight: params.destNetWeight,
+      unloaderId,
+      arrivalTime,
+      unloadTime,
+      notes: params.notes
+    };
+
+    const transitionResult = tripStateMachine.transition(trip, 'COMPLETED', context, payload);
+    const updatedTrip = transitionResult.updatedTrip;
+
+    // Ensure all 5 required fields are fully and atomically updated
+    updatedTrip.unloaderId = unloaderId;
+    updatedTrip.arrivalTime = arrivalTime;
+    updatedTrip.unloadTime = unloadTime;
+    updatedTrip.destNetWeight = params.destNetWeight;
+    updatedTrip.varianceWeight = calculatedVariance;
+
+    let exceptionCreated: TripExceptionEntity | undefined;
+
+    // 4. "إذا كان هناك فرق خارج tolerance: أنشئ Exception. ولا تعتبر الفرق مجرد لون في الواجهة."
+    if (isOutOfTolerance) {
+      const exceptionId = `EXP-DISC-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+      const severity = Math.abs(variancePercent) > 3.0 ? 'BLOCKING' : 'HIGH';
+
+      exceptionCreated = {
+        exceptionId,
+        tripId: trip.tripId,
+        projectId: trip.projectId,
+        type: 'WEIGHT_DISCREPANCY',
+        severity,
+        status: 'OPEN',
+        reasonAr: `فارق وزن التفريغ (${calculatedVariance > 0 ? '+' : ''}${calculatedVariance.toLocaleString()} كجم / ${variancePercent}%) يتجاوز حد التسامح المسموح (±${effectiveToleranceKg.toLocaleString()} كجم / ±${tolerancePercent}%). وزن المصدر: ${trip.netWeight.toLocaleString()} كجم، وزن الاستلام: ${params.destNetWeight.toLocaleString()} كجم.`,
+        reportedBy: {
+          userId: unloaderId,
+          displayName: params.actorName || 'مستلم ومفتش التفريغ'
+        },
+        createdAt: nowIso as any,
+        updatedAt: nowIso as any,
+        createdBy: unloaderId,
+        updatedBy: unloaderId
+      };
+
+      // Add to exceptions map
+      const currentList = this.exceptions.get(trip.tripId) || [];
+      this.exceptions.set(trip.tripId, [exceptionCreated, ...currentList]);
+
+      // Integrate with authoritative Exception Engine (and record audit log)
+      exceptionEngine.createException({
+        exceptionId,
+        projectId: trip.projectId,
+        tripId: trip.tripId,
+        type: 'WEIGHT_VARIANCE',
+        severity,
+        description: `فارق وزن التفريغ (${calculatedVariance > 0 ? '+' : ''}${calculatedVariance.toLocaleString()} كجم / ${variancePercent}%) يتجاوز حد التسامح المسموح (±${effectiveToleranceKg.toLocaleString()} كجم / ±${tolerancePercent}%). وزن المصدر: ${trip.netWeight.toLocaleString()} كجم، وزن الاستلام: ${params.destNetWeight.toLocaleString()} كجم.`,
+        evidence: {
+          tripSerial: trip.tripSerial,
+          ticketId: trip.ticketId,
+          loadedNetKg: trip.netWeight,
+          receivedNetKg: params.destNetWeight,
+          varianceKg: calculatedVariance,
+          variancePercent,
+          toleranceLimitKg: effectiveToleranceKg,
+          tolerancePercent,
+          unloaderId
+        },
+        openedBy: params.actorName ? `${params.actorName} (${unloaderId})` : unloaderId
+      });
+
+      // Update trip exception flags
+      updatedTrip.hasExceptions = true;
+      updatedTrip.activeExceptionCount = (updatedTrip.activeExceptionCount || 0) + 1;
+
+      // Log formal event and audit in State Machine
+      const excEvent: TripLifecycleEvent = {
+        eventId: `EVT-${Date.now()}-EXC`,
+        tripId: trip.tripId,
+        action: 'WEIGHT_DISCREPANCY_EXCEPTION_RAISED',
+        fromStatus: 'UNLOADING',
+        toStatus: 'COMPLETED',
+        actorId: unloaderId,
+        actorRole: 'SITE_RECEIVER',
+        actorName: params.actorName || 'مستلم ومفتش الموقع',
+        projectId: trip.projectId,
+        timestamp: nowIso,
+        reason: `إنشاء استثناء وزني رسمي (${exceptionId}) لتجاوز حد التفاوت المسموح`,
+        payload: {
+          exceptionId,
+          varianceWeight: calculatedVariance,
+          variancePercent,
+          toleranceKg: effectiveToleranceKg,
+          destNetWeight: params.destNetWeight,
+          originNetWeight: trip.netWeight
+        },
+        version: updatedTrip.version
+      };
+
+      const excAudit: TripAuditLog = {
+        auditId: `AUD-${Date.now()}-EXC`,
+        tripId: trip.tripId,
+        action: 'EXCEPTION_WEIGHT_DISCREPANCY_REGISTERED',
+        fromStatus: 'UNLOADING',
+        toStatus: 'COMPLETED',
+        actorId: unloaderId,
+        actorRole: 'SITE_RECEIVER',
+        actorName: params.actorName || 'مستلم ومفتش الموقع',
+        projectId: trip.projectId,
+        versionBefore: trip.version,
+        versionAfter: updatedTrip.version,
+        timestamp: nowIso,
+        details: `تسجيل استثناء مالي وتشغيلي رسمي (${exceptionId}) في قاعدة البيانات بسبب تفاوت وزن قدره (${calculatedVariance.toLocaleString()} كجم / ${variancePercent}%) يتجاوز الحد المسموح. هذا استثناء رسمي معتمد يمنع إغلاق التسوية المالية بدون اعتماد إداري.`,
+        diff: {
+          hasExceptions: { before: false, after: true },
+          exceptionId: { before: null, after: exceptionId },
+          varianceWeight: { before: null, after: calculatedVariance }
+        }
+      };
+
+      tripStateMachine.addLifecycleEvent(excEvent);
+      tripStateMachine.addAuditLog(excAudit);
+    }
+
+    this.trips[tripIndex] = updatedTrip;
+
+    return {
+      trip: updatedTrip,
+      varianceWeight: calculatedVariance,
+      variancePercent,
+      isOutOfTolerance,
+      toleranceThresholdKg: effectiveToleranceKg,
+      exceptionCreated,
+      event: transitionResult.event,
+      auditLog: transitionResult.auditLog
+    };
+  }
+
+  /**
+   * Retrieves registered exceptions for a given trip.
+   */
+  getTripExceptions(tripId: string): TripExceptionEntity[] {
+    return this.exceptions.get(tripId) || [];
+  }
+
+  /**
+   * Retrieves all registered exceptions across all trips.
+   */
+  getAllExceptions(): TripExceptionEntity[] {
+    const all: TripExceptionEntity[] = [];
+    this.exceptions.forEach(list => all.push(...list));
+    return all;
+  }
+
+  /**
+   * Resolves or waives an exception.
+   */
+  resolveException(
+    tripId: string,
+    exceptionId: string,
+    resolution: { notes: string; status: 'RESOLVED' | 'WAIVED'; financialPenaltySAR?: number },
+    resolvedByUserId: string
+  ): void {
+    const list = this.exceptions.get(tripId) || [];
+    const index = list.findIndex(e => e.exceptionId === exceptionId);
+    if (index !== -1) {
+      list[index] = {
+        ...list[index],
+        status: resolution.status,
+        resolution: {
+          resolvedByUserId,
+          resolutionNotes: resolution.notes,
+          financialPenaltySAR: resolution.financialPenaltySAR,
+          resolvedAt: new Date()
+        }
+      };
+      this.exceptions.set(tripId, list);
+    }
+  }
+
   /**
    * Retrieves events and audit logs for a given trip.
    */
@@ -1053,6 +1504,7 @@ class TripEngineService {
    */
   resetTrips(): void {
     this.trips = [...INITIAL_TRIP_SEED];
+    this.exceptions.clear();
   }
 }
 

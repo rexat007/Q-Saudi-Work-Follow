@@ -182,9 +182,48 @@ export interface TripRecord {
 
   // Master Data snapshots for immutable auditing
   entitySnapshots?: TripEntitySnapshot;
+
+  // Exceptions & Quality Compliance
+  hasExceptions?: boolean;
+  activeExceptionCount?: number;
+}
+
+export type UnloadingSearchResultStatus = 'NOT_FOUND' | 'CONTINUE' | 'AMBIGUOUS' | 'PLATE_ONLY_PROHIBITED';
+
+export interface UnloadingSearchResult {
+  status: UnloadingSearchResultStatus;
+  matchedBy?: 'tripSerial' | 'ticketId' | 'truckId';
+  trip?: TripRecord;
+  candidateTrips?: TripRecord[];
+  count: number;
+  messageAr: string;
+}
+
+export interface UnloadingCompletionParams {
+  tripId: string;
+  destNetWeight: number;
+  unloaderId: string;
+  arrivalTime?: string;
+  unloadTime?: string;
+  notes?: string;
+  toleranceKg?: number; // default e.g. 500 kg
+  tolerancePercent?: number; // default e.g. 1.5%
+  actorName?: string;
+}
+
+export interface UnloadingCompletionResult {
+  trip: TripRecord;
+  varianceWeight: number;
+  variancePercent: number;
+  isOutOfTolerance: boolean;
+  toleranceThresholdKg: number;
+  exceptionCreated?: any; // TripExceptionEntity
+  event: TripLifecycleEvent;
+  auditLog: TripAuditLog;
 }
 
 export interface CreateTripParams {
+  tripId?: string;
   projectId: string;
   carrierId: string;
   truckId: string;

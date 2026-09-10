@@ -599,8 +599,8 @@ export const StateMachineController: React.FC<StateMachineControllerProps> = ({
               onChange={e => onSelectTrip(e.target.value)}
               className="bg-amber-50 border border-amber-300 rounded-lg px-3 py-1.5 text-xs font-bold text-stone-900 font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
             >
-              {trips.map(t => (
-                <option key={t.tripId} value={t.tripId}>
+              {trips.map((t, idx) => (
+                <option key={`${t.tripId}-${idx}`} value={t.tripId}>
                   {t.tripSerial} — الحالة: [{t.status}] — v{t.version} — {t.entitySnapshots?.material?.nameAr || t.materialId}
                 </option>
               ))}

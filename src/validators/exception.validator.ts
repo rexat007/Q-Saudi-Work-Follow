@@ -14,19 +14,39 @@ export class ExceptionValidator {
       });
     }
 
-    if (!exception.tripId || !exception.tripId.trim()) {
+    // tripId is nullable for system-wide or non-trip exceptions
+    if (exception.tripId !== undefined && exception.tripId !== null && !exception.tripId.trim()) {
       errors.push({
         field: 'tripId',
-        code: 'REQUIRED',
-        messageAr: 'معرّف الرحلة مطلوب',
-        messageEn: 'Trip ID is required',
+        code: 'INVALID_TRIP_ID',
+        messageAr: 'معرّف الرحلة غير صالح',
+        messageEn: 'Trip ID is invalid',
       });
     }
 
-    if (!exception.type || ![
-      'OVERWEIGHT_VIOLATION', 'WEIGHT_DISCREPANCY', 'ROUTE_DEVIATION', 
-      'EXCESSIVE_TRANSIT_TIME', 'DAMAGED_CARGO', 'VEHICLE_BREAKDOWN', 'OFF_HOURS_MOVEMENT'
-    ].includes(exception.type)) {
+    const validTypes = [
+      'WEIGHT_VARIANCE',
+      'TRUCK_CARRIER_CONFLICT',
+      'DRIVER_CARRIER_CONFLICT',
+      'MATERIAL_NOT_ALLOWED',
+      'CARRIER_NOT_ALLOWED',
+      'AMBIGUOUS_TRIP',
+      'DUPLICATE_TRIP',
+      'INVALID_WEIGHT',
+      'MISSING_PRICING',
+      'PRICING_CONFLICT',
+      'SYNC_FAILURE',
+      'VERSION_CONFLICT',
+      'OVERWEIGHT_VIOLATION',
+      'WEIGHT_DISCREPANCY',
+      'ROUTE_DEVIATION', 
+      'EXCESSIVE_TRANSIT_TIME',
+      'DAMAGED_CARGO',
+      'VEHICLE_BREAKDOWN',
+      'OFF_HOURS_MOVEMENT'
+    ];
+
+    if (!exception.type || !validTypes.includes(exception.type)) {
       errors.push({
         field: 'type',
         code: 'INVALID_TYPE',
@@ -35,7 +55,7 @@ export class ExceptionValidator {
       });
     }
 
-    if (!exception.severity || !['LOW', 'MEDIUM', 'HIGH', 'BLOCKING'].includes(exception.severity)) {
+    if (!exception.severity || !['LOW', 'MEDIUM', 'HIGH', 'BLOCKING', 'CRITICAL'].includes(exception.severity)) {
       errors.push({
         field: 'severity',
         code: 'INVALID_SEVERITY',
@@ -44,7 +64,7 @@ export class ExceptionValidator {
       });
     }
 
-    if (!exception.status || !['OPEN', 'INVESTIGATING', 'WAIVED', 'RESOLVED'].includes(exception.status)) {
+    if (!exception.status || !['OPEN', 'UNDER_REVIEW', 'RESOLVED', 'REJECTED', 'INVESTIGATING', 'WAIVED'].includes(exception.status)) {
       errors.push({
         field: 'status',
         code: 'INVALID_STATUS',

@@ -12,10 +12,11 @@ import { handleFirestoreError, OperationType } from '../firebase/errors';
 import { TripExceptionEntity } from '../types/entities';
 
 export class ExceptionRepository {
-  private getPath(projectId: string, tripId: string, exceptionId?: string): string {
+  private getPath(projectId: string, tripId: string | null, exceptionId?: string): string {
+    const safeTrip = tripId || '_general';
     return exceptionId 
-      ? `projects/${projectId}/trips/${tripId}/exceptions/${exceptionId}` 
-      : `projects/${projectId}/trips/${tripId}/exceptions`;
+      ? `projects/${projectId}/trips/${safeTrip}/exceptions/${exceptionId}` 
+      : `projects/${projectId}/trips/${safeTrip}/exceptions`;
   }
 
   async listByTrip(projectId: string, tripId: string): Promise<TripExceptionEntity[]> {
@@ -31,20 +32,22 @@ export class ExceptionRepository {
   async create(exception: Omit<TripExceptionEntity, 'createdAt' | 'updatedAt'> & { createdBy: string; updatedBy: string }): Promise<void> {
     const path = this.getPath(exception.projectId, exception.tripId, exception.exceptionId);
     try {
+      const safeTrip = exception.tripId || '_general';
       const payload = {
         ...exception,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
-      await setDoc(doc(db, 'projects', exception.projectId, 'trips', exception.tripId, 'exceptions', exception.exceptionId), payload);
+      await setDoc(doc(db, 'projects', exception.projectId, 'trips', safeTrip, 'exceptions', exception.exceptionId), payload);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);
     }
   }
 
-  async update(projectId: string, tripId: string, exceptionId: string, updates: Partial<TripExceptionEntity>, updatedBy: string): Promise<void> {
+  async update(projectId: string, tripId: string | null, exceptionId: string, updates: Partial<TripExceptionEntity>, updatedBy: string): Promise<void> {
     const path = this.getPath(projectId, tripId, exceptionId);
     try {
+      const safeTrip = tripId || '_general';
       const payload = {
         ...updates,
         exceptionId,
@@ -53,7 +56,7 @@ export class ExceptionRepository {
         updatedAt: serverTimestamp(),
         updatedBy,
       };
-      await updateDoc(doc(db, 'projects', projectId, 'trips', tripId, 'exceptions', exceptionId), payload);
+      await updateDoc(doc(db, 'projects', projectId, 'trips', safeTrip, 'exceptions', exceptionId), payload);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
     }

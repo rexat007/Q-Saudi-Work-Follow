@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Building2, 
   Truck, 
@@ -8,6 +8,7 @@ import {
   Navigation, 
   Clock, 
   AlertTriangle, 
+  AlertOctagon,
   FileText, 
   RefreshCw, 
   Database, 
@@ -35,13 +36,40 @@ import { MasterDataView } from './components/masterData/MasterDataView';
 import { DataQualityView } from './components/dataQuality/DataQualityView';
 import { ImportCenterView } from './components/importCenter/ImportCenterView';
 import { TripEngineView } from './components/TripEngineView';
+import { ExceptionEngineView } from './components/exceptionEngine/ExceptionEngineView';
 import { AuthButton } from './components/auth/AuthButton';
+import { PWAInstallButton } from './components/offline/PWAInstallButton';
+import { OfflineIndicator } from './components/offline/OfflineIndicator';
+import { OutboxDrawer } from './components/offline/OutboxDrawer';
+import { useOnlineStatus } from './hooks/useOnlineStatus';
+import { outboxService } from './services/offline/outbox.service';
+import { Wifi, Inbox } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'TRIP_ENGINE' | 'IMPORT_CENTER' | 'DATA_QUALITY' | 'MASTER_DATA' | 'PRICING_ENGINE' | 'WIZARD' | 'FIRESTORE_ARCH' | 'RELATIONS' | 'PRINCIPLES' | 'DOCS'>('TRIP_ENGINE');
+  const [activeTab, setActiveTab] = useState<'TRIP_ENGINE' | 'EXCEPTION_ENGINE' | 'IMPORT_CENTER' | 'DATA_QUALITY' | 'MASTER_DATA' | 'PRICING_ENGINE' | 'WIZARD' | 'FIRESTORE_ARCH' | 'RELATIONS' | 'PRINCIPLES' | 'DOCS'>('TRIP_ENGINE');
   const [selectedEntityId, setSelectedEntityId] = useState<string>('Trip');
   const [selectedDocId, setSelectedDocId] = useState<string>('architecture');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Offline-first PWA and Outbox states
+  const [isOutboxOpen, setIsOutboxOpen] = useState<boolean>(false);
+  const { isOnline, isSimulatedOffline } = useOnlineStatus();
+  const [pendingCount, setPendingCount] = useState<number>(0);
+
+  useEffect(() => {
+    const updateCount = async () => {
+      try {
+        const ops = await outboxService.getOperations();
+        const pending = ops.filter(o => o.status === 'PENDING' || o.status === 'FAILED' || o.status === 'SENDING').length;
+        setPendingCount(pending);
+      } catch (e) {
+        // ignore
+      }
+    };
+    updateCount();
+    const interval = setInterval(updateCount, 2500);
+    return () => clearInterval(interval);
+  }, []);
 
   const selectedEntity = ENTITY_RELATIONS.find(e => e.id === selectedEntityId) || ENTITY_RELATIONS[6]; // Trip by default
   const selectedDoc = ARCHITECTURE_DOCS.find(d => d.id === selectedDocId) || ARCHITECTURE_DOCS[0];
@@ -121,6 +149,24 @@ export default function App() {
                   activeTab === 'TRIP_ENGINE' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
                 }`}>
                   6 قواعد
+                </span>
+              </button>
+
+              <button
+                id="tab-exception-engine"
+                onClick={() => setActiveTab('EXCEPTION_ENGINE')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  activeTab === 'EXCEPTION_ENGINE' 
+                    ? 'bg-rose-700 text-white shadow-xs' 
+                    : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/50'
+                }`}
+              >
+                <AlertOctagon className="w-3.5 h-3.5" />
+                <span>محرك الاستثناءات (Exception Engine)</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                  activeTab === 'EXCEPTION_ENGINE' ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-800'
+                }`}>
+                  12 نوعاً و Audit
                 </span>
               </button>
 
@@ -267,6 +313,30 @@ export default function App() {
               </button>
             </nav>
 
+            {/* Outbox & Network Status Pill */}
+            <button
+              id="header-outbox-btn"
+              onClick={() => setIsOutboxOpen(true)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border shadow-2xs ${
+                isOnline 
+                  ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-900' 
+                  : 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-950 animate-pulse'
+              }`}
+              title="فتح صندوق العمليات المعلقة (Outbox) وإعدادات عدم الاتصال ومحاكاة الشبكة"
+            >
+              {isOnline ? <Wifi className="w-3.5 h-3.5 text-emerald-600" /> : <WifiOff className="w-3.5 h-3.5 text-amber-700" />}
+              <span>{isOnline ? 'Online' : 'Offline'}</span>
+              <Inbox className="w-3 h-3 text-stone-500 mr-0.5" />
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                pendingCount > 0 ? 'bg-amber-500 text-white font-bold' : 'bg-stone-200 text-stone-700'
+              }`}>
+                {pendingCount}
+              </span>
+            </button>
+
+            {/* PWA Install Button */}
+            <PWAInstallButton />
+
             <AuthButton />
           </div>
         </div>
@@ -278,6 +348,11 @@ export default function App() {
         {/* ================= TAB: TRIP ENGINE (6 RULES & SERVER SETTLEMENT) ================= */}
         {activeTab === 'TRIP_ENGINE' && (
           <TripEngineView />
+        )}
+
+        {/* ================= TAB: EXCEPTION ENGINE (12 TYPES, 4 STATUSES, & AUDIT TRAIL) ================= */}
+        {activeTab === 'EXCEPTION_ENGINE' && (
+          <ExceptionEngineView />
         )}
 
         {/* ================= TAB: IMPORT CENTER (12-STAGE PIPELINE) ================= */}
@@ -654,6 +729,12 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Floating Offline Status Pill & Sync Banner */}
+      <OfflineIndicator onOpenOutbox={() => setIsOutboxOpen(true)} />
+
+      {/* Outbox Drawer (Operations Queue, Manual Sync, Network Simulator) */}
+      <OutboxDrawer isOpen={isOutboxOpen} onClose={() => setIsOutboxOpen(false)} />
     </div>
   );
 }

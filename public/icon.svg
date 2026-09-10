@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b45309" />
+      <stop offset="50%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+    <linearGradient id="truckGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#fef3c7" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="104" fill="url(#bgGrad)" />
+  <g transform="translate(64, 80) scale(0.75)" fill="none" stroke="#ffffff" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Truck Cabin & Cargo -->
+    <rect x="30" y="100" width="260" height="180" rx="16" fill="rgba(255,255,255,0.15)" stroke="#ffffff" stroke-width="20" />
+    <path d="M290 160 L370 160 L420 220 L420 280 L290 280 Z" fill="rgba(255,255,255,0.25)" stroke="#ffffff" stroke-width="20" />
+    <!-- Cabin Window -->
+    <path d="M305 180 L360 180 L395 225 L305 225 Z" fill="#ffffff" />
+    <!-- Wheels -->
+    <circle cx="110" cy="300" r="42" fill="#1c1917" stroke="#ffffff" stroke-width="16" />
+    <circle cx="110" cy="300" r="14" fill="#ffffff" />
+    <circle cx="230" cy="300" r="42" fill="#1c1917" stroke="#ffffff" stroke-width="16" />
+    <circle cx="230" cy="300" r="14" fill="#ffffff" />
+    <circle cx="360" cy="300" r="42" fill="#1c1917" stroke="#ffffff" stroke-width="16" />
+    <circle cx="360" cy="300" r="14" fill="#ffffff" />
+    <!-- Cargo lines -->
+    <line x1="80" y1="140" x2="240" y2="140" stroke="#ffffff" stroke-width="14" stroke-linecap="round" />
+    <line x1="80" y1="180" x2="240" y2="180" stroke="#ffffff" stroke-width="14" stroke-linecap="round" />
+    <line x1="80" y1="220" x2="240" y2="220" stroke="#ffffff" stroke-width="14" stroke-linecap="round" />
+  </g>
+  <!-- Scale indicator at bottom -->
+  <path d="M190 420 L322 420" stroke="#fef3c7" stroke-width="12" stroke-linecap="round" />
+  <circle cx="256" cy="420" r="8" fill="#ffffff" />
+  <text x="256" y="465" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="34" font-weight="900" letter-spacing="2">Q-SAUDI</text>
+</svg>

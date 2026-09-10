@@ -47,13 +47,39 @@ export class ExceptionService {
     return newException as TripExceptionEntity;
   }
 
+  async startReview(
+    projectId: string,
+    tripId: string | null,
+    exceptionId: string,
+    note: string,
+    context: AuthUserContext
+  ): Promise<void> {
+    const updates: Partial<TripExceptionEntity> = {
+      status: 'UNDER_REVIEW',
+      reviewedAt: new Date().toISOString(),
+      reviewedBy: context.displayName,
+      resolutionNote: note
+    };
+
+    await exceptionRepository.update(projectId, tripId, exceptionId, updates, context.userId);
+
+    await auditLogService.recordLog({
+      projectId,
+      entityType: 'EXCEPTION',
+      entityId: exceptionId,
+      action: 'UPDATE',
+      after: updates,
+    }, context);
+  }
+
   async resolveException(
     projectId: string,
-    tripId: string,
+    tripId: string | null,
     exceptionId: string,
     resolution: {
       notes: string;
-      status: 'RESOLVED' | 'WAIVED';
+      status?: 'RESOLVED' | 'WAIVED';
+      resolutionCode?: string;
       financialPenaltySAR?: number;
     },
     context: AuthUserContext
@@ -62,8 +88,12 @@ export class ExceptionService {
       throw new Error('البت في الاستثناءات التشغيلية والمالية مقتصر على مدير المشروع أو المدقق المالي');
     }
 
+    const resolvedStatus = resolution.status || 'RESOLVED';
     const updates: Partial<TripExceptionEntity> = {
-      status: resolution.status,
+      status: resolvedStatus,
+      reviewedAt: new Date().toISOString(),
+      reviewedBy: context.displayName,
+      resolutionNote: resolution.notes,
       resolution: {
         resolvedByUserId: context.userId,
         resolutionNotes: resolution.notes,
@@ -78,7 +108,36 @@ export class ExceptionService {
       projectId,
       entityType: 'EXCEPTION',
       entityId: exceptionId,
-      action: resolution.status === 'WAIVED' ? 'WAIVE_EXCEPTION' : 'UPDATE',
+      action: resolvedStatus === 'WAIVED' ? 'WAIVE_EXCEPTION' : 'UPDATE',
+      after: updates,
+    }, context);
+  }
+
+  async rejectException(
+    projectId: string,
+    tripId: string | null,
+    exceptionId: string,
+    rejection: {
+      reason: string;
+      notes: string;
+    },
+    context: AuthUserContext
+  ): Promise<void> {
+    const updates: Partial<TripExceptionEntity> = {
+      status: 'REJECTED',
+      reviewedAt: new Date().toISOString(),
+      reviewedBy: context.displayName,
+      resolution: rejection.reason,
+      resolutionNote: rejection.notes
+    };
+
+    await exceptionRepository.update(projectId, tripId, exceptionId, updates, context.userId);
+
+    await auditLogService.recordLog({
+      projectId,
+      entityType: 'EXCEPTION',
+      entityId: exceptionId,
+      action: 'UPDATE',
       after: updates,
     }, context);
   }

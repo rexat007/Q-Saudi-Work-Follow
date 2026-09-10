@@ -278,9 +278,21 @@ export interface TripEventEntity extends BaseAuditedEntity {
 // 10. Trip Exception Entity
 export interface TripExceptionEntity extends BaseAuditedEntity {
   exceptionId: string;
-  tripId: string;
+  tripId: string | null; // nullable as requested for system-level exceptions
   projectId: string;
   type: 
+    | 'WEIGHT_VARIANCE'
+    | 'TRUCK_CARRIER_CONFLICT'
+    | 'DRIVER_CARRIER_CONFLICT'
+    | 'MATERIAL_NOT_ALLOWED'
+    | 'CARRIER_NOT_ALLOWED'
+    | 'AMBIGUOUS_TRIP'
+    | 'DUPLICATE_TRIP'
+    | 'INVALID_WEIGHT'
+    | 'MISSING_PRICING'
+    | 'PRICING_CONFLICT'
+    | 'SYNC_FAILURE'
+    | 'VERSION_CONFLICT'
     | 'OVERWEIGHT_VIOLATION'
     | 'WEIGHT_DISCREPANCY'
     | 'ROUTE_DEVIATION'
@@ -288,8 +300,15 @@ export interface TripExceptionEntity extends BaseAuditedEntity {
     | 'DAMAGED_CARGO'
     | 'VEHICLE_BREAKDOWN'
     | 'OFF_HOURS_MOVEMENT';
-  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKING';
-  status: 'OPEN' | 'INVESTIGATING' | 'WAIVED' | 'RESOLVED';
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKING' | 'CRITICAL';
+  status: 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'REJECTED' | 'INVESTIGATING' | 'WAIVED';
+  description?: string;
+  evidence?: Record<string, any>;
+  openedAt?: string;
+  openedBy?: string;
+  reviewedAt?: string | null;
+  reviewedBy?: string | null;
+  resolutionNote?: string | null;
   reasonAr: string;
   reportedBy: {
     userId: string;
@@ -300,7 +319,7 @@ export interface TripExceptionEntity extends BaseAuditedEntity {
     resolutionNotes: string;
     financialPenaltySAR?: number;
     resolvedAt: Timestamp | Date;
-  };
+  } | string | null;
 }
 
 // 11. Audit Log Entity

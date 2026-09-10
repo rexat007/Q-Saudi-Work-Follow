@@ -37,12 +37,14 @@ import {
 import { SAMPLE_QUALITY_CONTEXT } from '../data/sampleQualityData';
 import { StateMachineController } from './tripEngine/StateMachineController';
 import { LoadingStation } from './tripEngine/LoadingStation';
+import { UnloadingStation } from './tripEngine/UnloadingStation';
+import { WeightEngineView } from './tripEngine/WeightEngineView';
 
 export const TripEngineView: React.FC = () => {
   const [trips, setTrips] = useState<TripRecord[]>(() => tripEngineService.getTrips());
   const [selectedTrip, setSelectedTrip] = useState<TripRecord | null>(null);
   const [receiptModalTrip, setReceiptModalTrip] = useState<TripRecord | null>(null);
-  const [activeSubTab, setActiveSubTab] = useState<'LOADING_STATION' | 'STATE_MACHINE' | 'LIST' | 'DISPATCH' | 'TEST_MATRIX'>('LOADING_STATION');
+  const [activeSubTab, setActiveSubTab] = useState<'LOADING_STATION' | 'UNLOADING_STATION' | 'WEIGHT_ENGINE' | 'STATE_MACHINE' | 'LIST' | 'DISPATCH' | 'TEST_MATRIX'>('WEIGHT_ENGINE');
 
   // Filter & Search states
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -364,7 +366,29 @@ export const TripEngineView: React.FC = () => {
               }`}
             >
               <Scale className="w-3.5 h-3.5" />
-              <span>محطة التحميل والميزان (Loading Station)</span>
+              <span>محطة التحميل (Loading)</span>
+            </button>
+            <button
+              onClick={() => setActiveSubTab('UNLOADING_STATION')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeSubTab === 'UNLOADING_STATION' 
+                  ? 'bg-amber-600 text-white shadow-xs' 
+                  : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span>محطة التفريغ (Unloading)</span>
+            </button>
+            <button
+              onClick={() => setActiveSubTab('WEIGHT_ENGINE')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeSubTab === 'WEIGHT_ENGINE' 
+                  ? 'bg-amber-600 text-white shadow-xs' 
+                  : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+              }`}
+            >
+              <Calculator className="w-3.5 h-3.5" />
+              <span>محرك الأوزان والتفاوت (Weight Engine)</span>
             </button>
             <button
               onClick={() => setActiveSubTab('STATE_MACHINE')}
@@ -468,6 +492,26 @@ export const TripEngineView: React.FC = () => {
           }}
           onNotification={setNotification}
         />
+      )}
+
+      {/* ==================== SUB-TAB: UNLOADING STATION ==================== */}
+      {activeSubTab === 'UNLOADING_STATION' && (
+        <UnloadingStation
+          onTripUpdated={(updatedTrip) => {
+            refreshTrips();
+            setSelectedTrip(updatedTrip);
+          }}
+          onViewTripDetails={(trip) => {
+            setSelectedTrip(trip);
+            setActiveSubTab('LIST');
+          }}
+          onNotification={setNotification}
+        />
+      )}
+
+      {/* ==================== SUB-TAB: STANDALONE WEIGHT ENGINE ==================== */}
+      {activeSubTab === 'WEIGHT_ENGINE' && (
+        <WeightEngineView />
       )}
 
       {/* ==================== SUB-TAB: CENTRALIZED STATE MACHINE ==================== */}
@@ -1097,8 +1141,8 @@ export const TripEngineView: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredTrips.map(trip => (
-                    <tr key={trip.tripId} className="hover:bg-amber-50/30 transition-colors">
+                  filteredTrips.map((trip, idx) => (
+                    <tr key={`${trip.tripId}-${idx}`} className="hover:bg-amber-50/30 transition-colors">
                       {/* Trip Serial & Ticket */}
                       <td className="py-3 px-3">
                         <div className="font-bold text-stone-900 font-mono text-xs">{trip.tripSerial}</div>
