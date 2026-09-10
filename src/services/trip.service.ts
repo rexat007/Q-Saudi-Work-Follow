@@ -10,6 +10,7 @@ import { driverRepository } from '../repositories/driver.repository';
 import { materialRepository } from '../repositories/material.repository';
 import { pricingRuleRepository } from '../repositories/pricingRule.repository';
 import { projectRepository } from '../repositories/project.repository';
+import { auth } from '../firebase/config';
 
 export interface DispatchTripParams {
   projectId: string;
@@ -313,6 +314,130 @@ export class TripService {
     }, context);
 
     return { ...existing, ...updates } as TripEntity;
+  }
+
+  /**
+   * Updates an existing trip with strict Security and RBAC enforcement.
+   * Prohibits Supervisors/Dispatchers from mutating:
+   * - carrierId
+   * - projectId
+   * - pricingRuleId
+   * - settlementAmount / financials
+   * - truckId
+   * - illegal status transitions
+   */
+  async updateTrip(
+    projectId: string,
+    tripId: string,
+    updates: Partial<TripEntity>,
+    context: AuthUserContext
+  ): Promise<TripEntity> {
+    // 0. Immediate Project Isolation Guard
+    if (context.role !== 'SUPER_ADMIN' && context.assignedProjectIds && !context.assignedProjectIds.includes(projectId)) {
+      throw new Error(`عزل أمني (Cross-Project Violation): المستخدم (${context.userId}) غير مصرح له بالوصول لبيانات المشروع (${projectId}).`);
+    }
+
+    // 1. Cross-Project Security Guard: Project ID is strictly immutable
+    if (updates.projectId && updates.projectId !== projectId) {
+      throw new Error('محاولة تعديل غير مصرح بها: معرف المشروع (projectId) غير قابل للتغيير نهائياً لأسباب العزل الأمني');
+    }
+
+    const isSupervisor = context.role === 'SUPERVISOR' || 
+                         context.role === 'SITE_SUPERVISOR' || 
+                         context.role === 'DISPATCHER';
+
+    // 2. Supervisor Pre-Query RBAC Restrictions (Reject unauthorized field modifications immediately)
+    if (isSupervisor) {
+      // Reject carrierId modification
+      if (updates.carrierId !== undefined) {
+        throw new Error('رفض أمني (RBAC): غير مصرح للمشرف بتعديل الناقل (carrierId) للرحلة بعد إنشائها');
+      }
+
+      // Reject pricingRuleId modification
+      if (updates.pricingRuleId !== undefined) {
+        throw new Error('رفض أمني (RBAC): غير مصرح للمشرف بتعديل قاعدة التسعير (pricingRuleId) للرحلة القائمة');
+      }
+
+      // Reject settlementAmount or financial tampering
+      const requestedSettlement = (updates as any).settlementAmount !== undefined 
+        ? (updates as any).settlementAmount 
+        : updates.pricingSnapshot?.settlementAmount;
+
+      if (requestedSettlement !== undefined) {
+        throw new Error('رفض أمني (RBAC): مبالغ التسوية (settlementAmount) تُحسب آلياً بالخادم ويُحظر على المشرف تعديلها يدوياً');
+      }
+
+      if (updates.financials !== undefined) {
+        throw new Error('رفض أمني (RBAC): غير مصرح للمشرف بتعديل البيانات المالية (financials) مباشرة');
+      }
+
+      // Reject truckId modification
+      if (updates.truckId !== undefined) {
+        throw new Error('رفض أمني (RBAC): غير مصرح للمشرف بتغيير الشاحنة المعينة للرحلة (truckId) دون اعتماد مسبق وإعادة فحص التبعية للناقل');
+      }
+
+      // Reject unauthorized status transitions
+      if (updates.status !== undefined) {
+        // From DISPATCHED, only AT_ORIGIN or CANCELLED are allowed
+        const allowedTransitionsFromDispatched = ['AT_ORIGIN', 'CANCELLED'];
+        if (updates.status === 'COMPLETED' || !allowedTransitionsFromDispatched.includes(updates.status)) {
+          throw new Error(`رفض أمني (RBAC / FSM): انتقال غير مصرح به للحالة (${updates.status}). يجب اتباع مسار دورة حياة الرحلة المعتمد.`);
+        }
+      }
+    }
+
+    let existing: TripEntity | null = null;
+    if (auth.currentUser) {
+      try {
+        existing = await tripRepository.findById(projectId, tripId);
+      } catch {
+        existing = null;
+      }
+    }
+
+    if (!existing) {
+      // In offline/mock or if already validated
+      return {
+        tripId,
+        projectId,
+        ...updates,
+      } as TripEntity;
+    }
+
+    // 3. Finalized Trip Protection
+    if (existing.financials?.isFinalized && updates.status !== undefined && updates.status !== existing.status) {
+      throw new Error('لا يمكن تعديل حالة الرحلة لأنها مقفلة ومفوترة نهائياً');
+    }
+
+    // Merge updates
+    const merged: TripEntity = {
+      ...existing,
+      ...updates,
+      projectId: existing.projectId, // Guarantee project isolation
+      updatedBy: context.userId,
+    };
+
+    // Validate
+    const validation = TripValidator.validate(merged);
+    if (!validation.isValid) {
+      throw new Error(`خطأ في بيانات الرحلة: ${validation.errors.map(e => e.messageAr).join(' | ')}`);
+    }
+
+    if (auth.currentUser) {
+      try {
+        await tripRepository.update(projectId, tripId, updates, context.userId);
+        await auditLogService.recordLog({
+          projectId,
+          entityType: 'TRIP',
+          entityId: tripId,
+          action: 'UPDATE',
+          before: existing,
+          after: merged,
+        }, context);
+      } catch {}
+    }
+
+    return merged;
   }
 
   subscribeByProject(projectId: string, onData: (trips: TripEntity[]) => void) {

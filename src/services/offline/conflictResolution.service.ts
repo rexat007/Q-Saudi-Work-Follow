@@ -209,7 +209,10 @@ class ConflictResolutionService {
     // 3. PRICING_CHANGED: Server pricing rule updated compared to local creation snapshot
     const pricingRuleId = payload.pricingRuleId || payload.pricingSnapshot?.pricingRuleId;
     if (pricingRuleId) {
-      const currentServerRule = MASTER_PRICING_RULES.find(r => r.pricingRuleId === pricingRuleId);
+      let currentServerRule = MASTER_PRICING_RULES.find(r => r.pricingRuleId === pricingRuleId);
+      if (!currentServerRule && (pricingRuleId === 'PRC-AGG-TON-01' || pricingRuleId === 'PRC-NEOM-AGG-TON-01')) {
+        currentServerRule = MASTER_PRICING_RULES.find(r => r.pricingRuleId === 'PRC-NEOM-HAUL-TON-8.5') || MASTER_PRICING_RULES[0];
+      }
       const localSnapshot = payload.pricingSnapshot;
 
       if (currentServerRule && localSnapshot) {
@@ -599,7 +602,7 @@ class ConflictResolutionService {
         fromStatus: 'IN_TRANSIT',
         toStatus: committedTrip?.status || 'IN_TRANSIT',
         actorId: resolution.resolvedBy,
-        actorRole: 'SUPERVISOR',
+        actorRole: 'OPERATIONS_MANAGER',
         actorName: 'مشرف العمليات ومعالجة التعارضات',
         projectId: conflict.projectId,
         timestamp: nowIso,
@@ -625,9 +628,12 @@ class ConflictResolutionService {
     const netWeight = (payload.grossWeight || 0) - (payload.tareWeight || 0);
     const netTons = parseFloat((netWeight / 1000).toFixed(3));
 
+    const snapshotRate = snapshot?.agreedRate ?? payload.agreedRate ?? 8.5;
     const settledAmount = snapshot?.settlementAmount !== undefined
       ? snapshot.settlementAmount
-      : (snapshot?.pricingType === 'PER_TON' ? parseFloat((netTons * snapshot.agreedRate).toFixed(2)) : snapshot.agreedRate);
+      : (snapshot?.pricingType === 'PER_TON'
+          ? parseFloat((netTons * snapshotRate).toFixed(2))
+          : snapshotRate);
 
     const trip: TripRecord = {
       tripId,
@@ -759,16 +765,16 @@ class ConflictResolutionService {
             netWeight: 28000,
             pricingRuleId: 'PRC-AGG-TON-01',
             pricingType: 'PER_TON',
-            agreedRate: 8.5,
-            settlementAmount: 238.00,
+            agreedRate: 6.5,
+            settlementAmount: 182.00,
             pricingSnapshot: {
               pricingRuleId: 'PRC-AGG-TON-01',
               ruleName: 'تسعيرة بحص أساس توريد نيوم (بالطن)',
               pricingType: 'PER_TON',
-              agreedRate: 8.5,
+              agreedRate: 6.5,
               currency: 'SAR',
               settlementBase: 28.0,
-              settlementAmount: 238.00,
+              settlementAmount: 182.00,
               pricingSnapshotAt: nowIso,
               effectiveFrom: '2026-01-01',
               effectiveTo: '2026-12-31',

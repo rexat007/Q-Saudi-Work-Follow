@@ -749,3 +749,4 @@ export class ExceptionEngineService {
 }
 
 export const exceptionEngine = new ExceptionEngineService();
+export const exceptionEngineService = exceptionEngine;

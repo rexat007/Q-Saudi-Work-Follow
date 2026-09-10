@@ -1,0 +1,40 @@
+import { LocaleResource } from '../types';
+import { common } from './common';
+import { auth } from './auth';
+import { dashboard } from './dashboard';
+import { projects } from './projects';
+import { operations } from './operations';
+import { loading } from './loading';
+import { unloading } from './unloading';
+import { trips } from './trips';
+import { imports } from './imports';
+import { reports } from './reports';
+import { exceptions } from './exceptions';
+import { admin } from './admin';
+import { settings } from './settings';
+import { sync } from './sync';
+import { audit } from './audit';
+import { validation } from './validation';
+import { errors } from './errors';
+
+export const ar: LocaleResource = {
+  common,
+  auth,
+  dashboard,
+  projects,
+  operations,
+  loading,
+  unloading,
+  trips,
+  imports,
+  reports,
+  exceptions,
+  admin,
+  settings,
+  sync,
+  audit,
+  validation,
+  errors,
+};
+
+export default ar;

@@ -1,0 +1,28 @@
+import { DashboardTranslations } from '../types';
+
+export const dashboard: DashboardTranslations = {
+  title: 'Operations & Fleet Command Center',
+  subtitle: 'Live trip tracking, weighbridge telemetry, payload variance analytics & instant financial settlement audit',
+  overview: 'Overview',
+  activeTrips: 'Active Trips',
+  completedToday: 'Completed Today',
+  pendingUnload: 'Pending Unload',
+  totalTonnage: 'Total Tonnage Hauled',
+  grossWeight: 'Gross Weight',
+  netWeight: 'Net Weight',
+  revenueSAR: 'Approved Freight Revenue',
+  demurrageSAR: 'Demurrage Charges',
+  fleetUtilization: 'Fleet Utilization Rate',
+  liveOperations: 'Live Field Operations',
+  activeProjects: 'Active Projects',
+  carriersActive: 'Certified Carriers',
+  quickActions: 'Quick Actions',
+  recentActivity: 'Recent Logistics Activity',
+  liveFeed: 'Live Event Stream',
+  dispatchedVsDelivered: 'Dispatched vs Delivered',
+  performanceMetrics: 'Operational Performance (KPIs)',
+  hourlyThroughput: 'Hourly Throughput',
+  complianceRate: 'Weight Compliance Rate',
+  auditCoverage: 'Security Audit Coverage',
+  systemHealth: 'Database & Service Health',
+};

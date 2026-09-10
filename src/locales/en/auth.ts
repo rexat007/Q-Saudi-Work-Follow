@@ -1,0 +1,30 @@
+import { AuthTranslations } from '../types';
+
+export const auth: AuthTranslations = {
+  login: 'Sign In',
+  logout: 'Sign Out',
+  signedInAs: 'Signed in as',
+  guest: 'Guest User',
+  switchAccount: 'Switch Account',
+  unauthorized: 'Unauthorized Access',
+  accessDenied: 'Access Denied',
+  role: 'Assigned Role',
+  roles: {
+    ADMIN: 'System Administrator',
+    SUPER_ADMIN: 'Super Administrator',
+    PROJECT_ADMIN: 'Project Administrator',
+    LOADING_SUPERVISOR: 'Loading Supervisor',
+    UNLOADING_SUPERVISOR: 'Unloading Supervisor',
+    SITE_SUPERVISOR: 'Site Supervisor',
+    DISPATCHER: 'Operations Dispatcher',
+    FINANCE_AUDITOR: 'Finance Auditor',
+    VIEWER: 'Read-only Viewer',
+  },
+  permissions: 'Permissions',
+  sessionExpired: 'Session expired. Please sign in again.',
+  authenticating: 'Authenticating...',
+  signInWithGoogle: 'Sign in with Google Workspace',
+  userProfile: 'User Profile',
+  accountSettings: 'Account Settings',
+  anonymousMode: 'Sandboxed Preview Mode',
+};

@@ -77,7 +77,8 @@ service cloud.firestore {
         allow update: if isSignedIn() && isValidId(pricingRuleId) &&
                          isAuditStampedUpdate(incoming()) &&
                          incoming().pricingRuleId == existing().pricingRuleId &&
-                         incoming().projectId == existing().projectId;
+                         incoming().projectId == existing().projectId &&
+                         incoming().baseRateSAR == existing().baseRateSAR; // Base rate is immutable once published; requires Copy-on-Write version
         allow delete: if false;
       }
 
@@ -106,7 +107,8 @@ service cloud.firestore {
         allow update: if isSignedIn() && isValidId(truckId) &&
                          isAuditStampedUpdate(incoming()) &&
                          incoming().truckId == existing().truckId &&
-                         incoming().projectId == existing().projectId;
+                         incoming().projectId == existing().projectId &&
+                         incoming().carrierId == existing().carrierId; // Truck cannot be reassigned to another carrier
         allow delete: if false;
       }
 
@@ -135,7 +137,10 @@ service cloud.firestore {
         allow update: if isSignedIn() && isValidId(tripId) &&
                          isAuditStampedUpdate(incoming()) &&
                          incoming().tripId == existing().tripId &&
-                         incoming().projectId == existing().projectId;
+                         incoming().projectId == existing().projectId &&
+                         incoming().carrierId == existing().carrierId && // Carrier immutable
+                         incoming().truckId == existing().truckId && // Truck immutable
+                         incoming().pricingRuleId == existing().pricingRuleId; // Pricing rule immutable
         allow delete: if false;
 
         // Trip Events

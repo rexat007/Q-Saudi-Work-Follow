@@ -1,0 +1,27 @@
+import { ImportsTranslations } from '../types';
+
+export const imports: ImportsTranslations = {
+  importCenter: 'Import & Ingestion Hub',
+  legacyMigration: 'Legacy Sheet Migration Engine',
+  googleSheetImport: 'Google Sheets Ingestion',
+  uploadExcel: 'Upload Excel Workbook (.xlsx)',
+  uploadCSV: 'Upload CSV Document',
+  dragDropFile: 'Drag & drop file here or click to browse',
+  supportedFormats: 'Supported formats: XLSX, XLS, CSV (Max 25MB)',
+  columnMapping: '20-Column Canonical Alignment',
+  previewRows: 'Staging & Row Preview',
+  rowsRead: 'Rows Ingested',
+  rowsValid: 'Valid Rows',
+  rowsInvalid: 'Invalid Rows (Errors)',
+  matchedEntities: 'Matched Master Entities',
+  unmatchedEntities: 'Unmatched Entities (Require Onboarding)',
+  pricingUnresolved: 'Trips Missing Valid Pricing Rule',
+  duplicates: 'Duplicate Records Detected',
+  conflicts: 'Integrity Conflicts & Foreign Key Violations',
+  commitMigration: 'Execute Final Data Migration',
+  dryRunNotice: 'Dry-Run Simulation: Database will not be modified',
+  sourceProtected: 'Source Protected: Input file is read-only and immutable',
+  adminConfirmationRequired: 'Final commit requires System Administrator approval',
+  previewOnly: 'Preview Only',
+  executeMigration: 'Start Migration',
+};

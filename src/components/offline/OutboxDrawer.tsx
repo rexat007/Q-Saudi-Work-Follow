@@ -22,7 +22,9 @@ import {
   ShieldAlert,
   Scale,
   Lock,
-  Play
+  Play,
+  FileCode,
+  ShieldCheck
 } from 'lucide-react';
 import { outboxService } from '../../services/offline/outbox.service';
 import { offlineCacheService } from '../../services/offline/offlineCache.service';
@@ -31,6 +33,7 @@ import { ConflictResolutionModal } from './ConflictResolutionModal';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { OutboxOperation, OutboxStatus, CacheStoreMetadata, OutboxStats } from '../../types/offline';
 import { ConflictRecord, ConflictType } from '../../types/conflict';
+import { runConflictResolutionTestSuite, ConflictTestCaseResult } from '../../tests/conflictResolution.test';
 
 interface OutboxDrawerProps {
   isOpen: boolean;
@@ -57,6 +60,14 @@ export const OutboxDrawer: React.FC<OutboxDrawerProps> = ({
   const [isRefreshingCache, setIsRefreshingCache] = useState<boolean>(false);
   const [isSimulatingConflict, setIsSimulatingConflict] = useState<boolean>(false);
   const [expandedOpId, setExpandedOpId] = useState<string | null>(null);
+  const [testSuiteResult, setTestSuiteResult] = useState<{
+    allPassed: boolean;
+    totalTests: number;
+    passedTests: number;
+    failedTests: number;
+    results: ConflictTestCaseResult[];
+  } | null>(null);
+  const [isRunningTests, setIsRunningTests] = useState<boolean>(false);
 
   const loadData = async () => {
     try {
@@ -198,6 +209,28 @@ export const OutboxDrawer: React.FC<OutboxDrawerProps> = ({
       });
     } finally {
       setIsSimulatingConflict(false);
+    }
+  };
+
+  const handleRunTestSuite = async () => {
+    setIsRunningTests(true);
+    try {
+      const res = await runConflictResolutionTestSuite();
+      setTestSuiteResult(res);
+      await loadData();
+      onNotification?.({
+        type: res.allPassed ? 'SUCCESS' : 'ERROR',
+        message: res.allPassed
+          ? `اجتازت جميع اختبارات التعارضات (${res.passedTests}/${res.totalTests}) بنجاح تام وفق المحددات الإلزامية.`
+          : `يوجد (${res.failedTests}) اختبار لم يجتز الفحص.`,
+      });
+    } catch (err: any) {
+      onNotification?.({
+        type: 'ERROR',
+        message: err.message || 'فشل تشغيل فحص التحقق للتعارضات',
+      });
+    } finally {
+      setIsRunningTests(false);
     }
   };
 
@@ -682,6 +715,82 @@ export const OutboxDrawer: React.FC<OutboxDrawerProps> = ({
                     <span className="text-[10px] text-cyan-800 block mt-0.5">MASTER_DATA_CHANGED إيقاف أو تعديل المادة</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Automated Verification Test Suite Runner */}
+              <div className="bg-white p-4 rounded-xl border border-stone-200 shadow-2xs space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                      <FileCode className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>فحص التحقق الآلي للتعارضات (Automated Conflict Test Suite)</span>
+                    </h3>
+                    <p className="text-[11px] text-stone-500">
+                      برنامج فحص برمجي للتحقق من كافة القواعد والمحددات الإلزامية: الأنواع الـ 7، Anti-LWW، حفظ الأمرين، إشعار المستخدم، ثبات تسعير الـ Offline، والحل الصريح.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleRunTestSuite}
+                    disabled={isRunningTests}
+                    className="px-3.5 py-1.5 rounded-lg bg-indigo-700 hover:bg-indigo-800 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors shrink-0"
+                  >
+                    <RotateCw className={`w-3.5 h-3.5 ${isRunningTests ? 'animate-spin' : ''}`} />
+                    <span>{isRunningTests ? 'جاري الفحص البرمجي...' : 'تشغيل الفحص الآلي (Run Tests)'}</span>
+                  </button>
+                </div>
+
+                {/* Test Results Display */}
+                {testSuiteResult && (
+                  <div className="space-y-3 pt-2 border-t border-stone-100">
+                    <div className={`p-3 rounded-lg border text-xs flex items-center justify-between gap-2 ${
+                      testSuiteResult.allPassed 
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-950' 
+                        : 'bg-rose-50 border-rose-200 text-rose-950'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        {testSuiteResult.allPassed ? (
+                          <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                        ) : (
+                          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                        )}
+                        <span className="font-bold">
+                          {testSuiteResult.allPassed
+                            ? `نجح الفحص بالكامل: ${testSuiteResult.passedTests} من أصل ${testSuiteResult.totalTests} اختبار اجتازت التحقق بنسبة 100%`
+                            : `فشل الفحص: اجتاز ${testSuiteResult.passedTests} وفشل ${testSuiteResult.failedTests}`}
+                        </span>
+                      </div>
+                      <span className="font-mono font-bold text-[11px] px-2 py-0.5 rounded bg-white border border-stone-200">
+                        {testSuiteResult.passedTests}/{testSuiteResult.totalTests} PASSED
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                      {testSuiteResult.results.map(t => (
+                        <div
+                          key={t.id}
+                          className="bg-stone-50 border border-stone-200 rounded-lg p-2.5 text-xs flex flex-col gap-1"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className={`w-2 h-2 rounded-full ${t.passed ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                              <span className="font-bold text-stone-900">{t.nameAr}</span>
+                              <span className="text-[10px] font-mono text-stone-400">({t.id})</span>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              t.passed ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                            }`}>
+                              {t.passed ? 'ناجح PASSED' : 'فاشل FAILED'}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-stone-600 leading-relaxed">
+                            {t.details}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Conflicts List */}

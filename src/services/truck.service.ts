@@ -114,6 +114,57 @@ export class TruckService {
     }, context);
   }
 
+  /**
+   * Imports a truck under a specific carrier with strict relationship validation.
+   * Security Mandate: Prohibit importing a truck belonging to a different carrier.
+   */
+  async importTruck(
+    projectId: string,
+    targetCarrierId: string,
+    truckPayload: Partial<TruckEntity>,
+    context: AuthUserContext
+  ): Promise<TruckEntity> {
+    if (!targetCarrierId || !targetCarrierId.trim()) {
+      throw new Error('يجب تحديد الناقل المستهدف للاستيراد');
+    }
+
+    // Check Carrier Mismatch in payload
+    if (truckPayload.carrierId && truckPayload.carrierId !== targetCarrierId) {
+      throw new Error(`تعارض أمني في الاستيراد: الشاحنة محددة لناقل (${truckPayload.carrierId}) يختلف عن الناقل المستهدف للاستيراد (${targetCarrierId}). يُحظر استيراد شاحنة تابعة لناقل مختلف`);
+    }
+
+    // Check existing trucks in the project/system
+    const existingTrucks = await truckRepository.listByProject(projectId);
+    const plate = truckPayload.plate || truckPayload.plateNumberAr || '';
+    const normPlate = normalizePlate(plate);
+
+    const conflictingTruck = existingTrucks.find(t => 
+      (truckPayload.truckId && t.truckId === truckPayload.truckId) ||
+      (normPlate && t.normalizedPlate === normPlate)
+    );
+
+    if (conflictingTruck && conflictingTruck.carrierId !== targetCarrierId) {
+      throw new Error(`تعارض أمني (Truck-Carrier Mismatch): الشاحنة (${plate || truckPayload.truckId}) مسجلة مسبقاً في النظام تابعة لناقل آخر (${conflictingTruck.carrierId}). يُحظر استيرادها أو ربطها بالناقل (${targetCarrierId}) بدون إجراءات نقل ملكية واعتماد رسمي`);
+    }
+
+    const truckToRegister: Omit<TruckEntity, 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'> = {
+      truckId: truckPayload.truckId || `TRK-${Date.now().toString(36).toUpperCase()}`,
+      projectId,
+      carrierId: targetCarrierId,
+      plate,
+      normalizedPlate: normPlate,
+      plateNumberAr: truckPayload.plateNumberAr || plate,
+      truckType: truckPayload.truckType || 'TIPPER_32M3',
+      tareWeightKg: truckPayload.tareWeightKg || 14000,
+      maxGrossWeightKg: truckPayload.maxGrossWeightKg || 45000,
+      legalPayloadLimitKg: (truckPayload.maxGrossWeightKg || 45000) - (truckPayload.tareWeightKg || 14000),
+      status: truckPayload.status || 'ACTIVE',
+      isActive: truckPayload.status !== 'INACTIVE',
+    };
+
+    return this.registerTruck(truckToRegister, context);
+  }
+
   subscribeByProject(projectId: string, onData: (trucks: TruckEntity[]) => void) {
     return truckRepository.subscribeByProject(projectId, onData);
   }

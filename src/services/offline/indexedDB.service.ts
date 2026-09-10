@@ -11,6 +11,34 @@ const DB_VERSION = 2;
 
 export class IndexedDBService {
   private dbPromise: Promise<IDBDatabase> | null = null;
+  private memoryStore = new Map<string, Map<string, any>>();
+
+  private isSupported(): boolean {
+    return typeof window !== 'undefined' && typeof window.indexedDB !== 'undefined';
+  }
+
+  private getItemKey(storeName: string, item: any): string {
+    if (!item) return '';
+    if (storeName === 'projects') return item.projectId;
+    if (storeName === 'carriers') return item.carrierId;
+    if (storeName === 'materials') return item.materialId;
+    if (storeName === 'trucks') return item.truckId;
+    if (storeName === 'drivers') return item.driverId;
+    if (storeName === 'pricingRules') return item.pricingRuleId;
+    if (storeName === 'outbox') return item.operationId;
+    if (storeName === 'metadata') return item.storeName;
+    if (storeName === 'conflicts') return item.conflictId;
+    return item.id || item.key || JSON.stringify(item);
+  }
+
+  private getMemoryStore(storeName: string): Map<string, any> {
+    let s = this.memoryStore.get(storeName);
+    if (!s) {
+      s = new Map<string, any>();
+      this.memoryStore.set(storeName, s);
+    }
+    return s;
+  }
 
   /**
    * Initializes and opens the IndexedDB database instance with all required object stores and indexes.
@@ -20,7 +48,7 @@ export class IndexedDBService {
       return this.dbPromise;
     }
 
-    if (typeof window === 'undefined' || !window.indexedDB) {
+    if (!this.isSupported()) {
       throw new Error('IndexedDB is not supported in this environment');
     }
 
@@ -115,6 +143,9 @@ export class IndexedDBService {
   // ---------------- Generic CRUD Operations ---------------- //
 
   public async getAll<T>(storeName: string): Promise<T[]> {
+    if (!this.isSupported()) {
+      return Array.from(this.getMemoryStore(storeName).values()) as T[];
+    }
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(storeName, 'readonly');
@@ -127,6 +158,9 @@ export class IndexedDBService {
   }
 
   public async getById<T>(storeName: string, key: string): Promise<T | undefined> {
+    if (!this.isSupported()) {
+      return this.getMemoryStore(storeName).get(key) as T | undefined;
+    }
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(storeName, 'readonly');
@@ -139,6 +173,11 @@ export class IndexedDBService {
   }
 
   public async put<T>(storeName: string, value: T): Promise<void> {
+    if (!this.isSupported()) {
+      const k = this.getItemKey(storeName, value);
+      this.getMemoryStore(storeName).set(k, value);
+      return;
+    }
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(storeName, 'readwrite');
@@ -151,6 +190,11 @@ export class IndexedDBService {
   }
 
   public async putMany<T>(storeName: string, items: T[]): Promise<void> {
+    if (!this.isSupported()) {
+      const s = this.getMemoryStore(storeName);
+      items.forEach(item => s.set(this.getItemKey(storeName, item), item));
+      return;
+    }
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(storeName, 'readwrite');
@@ -164,6 +208,10 @@ export class IndexedDBService {
   }
 
   public async delete(storeName: string, key: string): Promise<void> {
+    if (!this.isSupported()) {
+      this.getMemoryStore(storeName).delete(key);
+      return;
+    }
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(storeName, 'readwrite');
@@ -176,6 +224,10 @@ export class IndexedDBService {
   }
 
   public async clear(storeName: string): Promise<void> {
+    if (!this.isSupported()) {
+      this.getMemoryStore(storeName).clear();
+      return;
+    }
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(storeName, 'readwrite');
@@ -188,6 +240,9 @@ export class IndexedDBService {
   }
 
   public async count(storeName: string): Promise<number> {
+    if (!this.isSupported()) {
+      return this.getMemoryStore(storeName).size;
+    }
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(storeName, 'readonly');

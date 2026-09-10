@@ -1,0 +1,27 @@
+import { ImportsTranslations } from '../types';
+
+export const imports: ImportsTranslations = {
+  importCenter: 'مركز الاستيراد والترحيل',
+  legacyMigration: 'ترحيل الشيت القديم (Legacy Migration Engine)',
+  googleSheetImport: 'استيراد من Google Sheets',
+  uploadExcel: 'رفع ملف إكسل (Excel .xlsx)',
+  uploadCSV: 'رفع ملف CSV',
+  dragDropFile: 'اسحب وأفلت الملف هنا أو اضغط للتصفح',
+  supportedFormats: 'الملفات المدعومة: XLSX, XLS, CSV (بحد أقصى 25 ميجابايت)',
+  columnMapping: 'مطابقة الأعمدة العشرين القياسية',
+  previewRows: 'معاينة الصفوف قبل الترحيل',
+  rowsRead: 'الصفوف المقروءة',
+  rowsValid: 'الصفوف الصالحة للترحيل',
+  rowsInvalid: 'الصفوف التي تحتوي على أخطاء',
+  matchedEntities: 'الكيانات المطابقة في النظام',
+  unmatchedEntities: 'كيانات جديدة بحاجة لاعتماد',
+  pricingUnresolved: 'رحلات بدون قاعدة تسعير مطابقة',
+  duplicates: 'سجلات مكررة تم اكتشافها',
+  conflicts: 'تعارضات أمنية أو علاقات غير صحيحة',
+  commitMigration: 'تنفيذ الترحيل النهائي وتخزين البيانات',
+  dryRunNotice: 'تشغيل تجريبي اختباري (Dry-Run Mode): لن يتم تعديل قاعدة البيانات',
+  sourceProtected: 'حماية المصدر: الملف الأصلي للقراءة فقط ولا يتم تعديله',
+  adminConfirmationRequired: 'يتطلب الترحيل الفعلي اعتماد مدير النظام (Admin Approval)',
+  previewOnly: 'معاينة فقط',
+  executeMigration: 'بدء الترحيل المعتمد',
+};

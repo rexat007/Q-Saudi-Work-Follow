@@ -24,7 +24,8 @@ import {
   Share2,
   Lock,
   ShieldAlert,
-  FileSpreadsheet
+  FileSpreadsheet,
+  LayoutDashboard
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { ENTITY_RELATIONS, MANDATORY_PRINCIPLES, EntityRelationInfo } from './entityRelations';
@@ -36,7 +37,13 @@ import { MasterDataView } from './components/masterData/MasterDataView';
 import { DataQualityView } from './components/dataQuality/DataQualityView';
 import { ImportCenterView } from './components/importCenter/ImportCenterView';
 import { TripEngineView } from './components/TripEngineView';
+import { ReportsEngineView } from './components/reports/ReportsEngineView';
+import { OperationsDashboardView } from './components/dashboard/OperationsDashboardView';
 import { ExceptionEngineView } from './components/exceptionEngine/ExceptionEngineView';
+import { WorkspaceIntegrationView } from './components/workspace/WorkspaceIntegrationView';
+import { AdminConsoleView } from './components/admin/AdminConsoleView';
+import { LegacyMigrationView } from './components/migration/LegacyMigrationView';
+import { SecurityAuditView } from './components/security/SecurityAuditView';
 import { AuthButton } from './components/auth/AuthButton';
 import { PWAInstallButton } from './components/offline/PWAInstallButton';
 import { OfflineIndicator } from './components/offline/OfflineIndicator';
@@ -47,7 +54,7 @@ import { conflictResolutionService } from './services/offline/conflictResolution
 import { Wifi, Inbox } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'TRIP_ENGINE' | 'EXCEPTION_ENGINE' | 'IMPORT_CENTER' | 'DATA_QUALITY' | 'MASTER_DATA' | 'PRICING_ENGINE' | 'WIZARD' | 'FIRESTORE_ARCH' | 'RELATIONS' | 'PRINCIPLES' | 'DOCS'>('TRIP_ENGINE');
+  const [activeTab, setActiveTab] = useState<'SECURITY_AUDIT' | 'LEGACY_MIGRATION' | 'ADMIN_CONSOLE' | 'OPERATIONS_DASHBOARD' | 'REPORTS_ENGINE' | 'TRIP_ENGINE' | 'WORKSPACE_INTEGRATION' | 'EXCEPTION_ENGINE' | 'IMPORT_CENTER' | 'DATA_QUALITY' | 'MASTER_DATA' | 'PRICING_ENGINE' | 'WIZARD' | 'FIRESTORE_ARCH' | 'RELATIONS' | 'PRINCIPLES' | 'DOCS'>('SECURITY_AUDIT');
   const [selectedEntityId, setSelectedEntityId] = useState<string>('Trip');
   const [selectedDocId, setSelectedDocId] = useState<string>('architecture');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -142,6 +149,96 @@ export default function App() {
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
             <nav className="flex items-center bg-stone-100 p-1 rounded-xl border border-stone-200/80 gap-1 overflow-x-auto">
               <button
+                id="tab-security-audit"
+                onClick={() => setActiveTab('SECURITY_AUDIT')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  activeTab === 'SECURITY_AUDIT' 
+                    ? 'bg-blue-600 text-white shadow-xs' 
+                    : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/50'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-blue-300" />
+                <span>التدقيق الأمني والحوكمة (Security Audit)</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                  activeTab === 'SECURITY_AUDIT' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-900'
+                }`}>
+                  16 نطاقاً
+                </span>
+              </button>
+
+              <button
+                id="tab-legacy-migration"
+                onClick={() => setActiveTab('LEGACY_MIGRATION')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  activeTab === 'LEGACY_MIGRATION' 
+                    ? 'bg-amber-600 text-white shadow-xs' 
+                    : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/50'
+                }`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>ترحيل الشيت القديم (Legacy Migration)</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                  activeTab === 'LEGACY_MIGRATION' ? 'bg-white/20 text-white' : 'bg-emerald-200 text-emerald-950'
+                }`}>
+                  20 عموداً
+                </span>
+              </button>
+
+              <button
+                id="tab-admin-console"
+                onClick={() => setActiveTab('ADMIN_CONSOLE')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  activeTab === 'ADMIN_CONSOLE' 
+                    ? 'bg-amber-600 text-white shadow-xs' 
+                    : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/50'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>لوحة الإدارة (Admin Console)</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                  activeTab === 'ADMIN_CONSOLE' ? 'bg-white/20 text-white' : 'bg-amber-200 text-amber-900'
+                }`}>
+                  11 قسماً
+                </span>
+              </button>
+
+              <button
+                id="tab-operations-dashboard"
+                onClick={() => setActiveTab('OPERATIONS_DASHBOARD')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  activeTab === 'OPERATIONS_DASHBOARD' 
+                    ? 'bg-stone-900 text-white shadow-xs' 
+                    : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/50'
+                }`}
+              >
+                <LayoutDashboard className="w-3.5 h-3.5 text-amber-400" />
+                <span>لوحة العمليات (Dashboard)</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                  activeTab === 'OPERATIONS_DASHBOARD' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
+                }`}>
+                  مباشر ومحمي
+                </span>
+              </button>
+
+              <button
+                id="tab-reports-engine"
+                onClick={() => setActiveTab('REPORTS_ENGINE')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  activeTab === 'REPORTS_ENGINE' 
+                    ? 'bg-amber-600 text-white shadow-xs' 
+                    : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/50'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>محرك التقارير (Reports Engine)</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                  activeTab === 'REPORTS_ENGINE' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
+                }`}>
+                  15 تقريراً و PDF
+                </span>
+              </button>
+
+              <button
                 id="tab-trip-engine"
                 onClick={() => setActiveTab('TRIP_ENGINE')}
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
@@ -156,6 +253,24 @@ export default function App() {
                   activeTab === 'TRIP_ENGINE' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
                 }`}>
                   6 قواعد
+                </span>
+              </button>
+
+              <button
+                id="tab-workspace-integration"
+                onClick={() => setActiveTab('WORKSPACE_INTEGRATION')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  activeTab === 'WORKSPACE_INTEGRATION' 
+                    ? 'bg-emerald-700 text-white shadow-xs' 
+                    : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/50'
+                }`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                <span>تكامل Google Workspace</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                  activeTab === 'WORKSPACE_INTEGRATION' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
+                }`}>
+                  Sheets & Drive
                 </span>
               </button>
 
@@ -365,9 +480,39 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
+        {/* ================= TAB: SECURITY AUDIT & COMPLIANCE (16 DOMAINS & EXHAUSTIVE RBAC) ================= */}
+        {activeTab === 'SECURITY_AUDIT' && (
+          <SecurityAuditView />
+        )}
+
+        {/* ================= TAB: LEGACY MIGRATION (20 COLS, PREVIEW-FIRST, MASTER MATCHING, ADMIN COMMIT) ================= */}
+        {activeTab === 'LEGACY_MIGRATION' && (
+          <LegacyMigrationView />
+        )}
+
+        {/* ================= TAB: ADMIN CONSOLE (11 SECTIONS & VERSIONED PRICING RULES) ================= */}
+        {activeTab === 'ADMIN_CONSOLE' && (
+          <AdminConsoleView />
+        )}
+
+        {/* ================= TAB: OPERATIONS DASHBOARD (STRICT AUTHORIZATION, 11 CARDS & 4 WIDGETS) ================= */}
+        {activeTab === 'OPERATIONS_DASHBOARD' && (
+          <OperationsDashboardView />
+        )}
+
+        {/* ================= TAB: REPORTS ENGINE (15 REPORTS, 9 FILTERS, PDF/XLSX/CSV) ================= */}
+        {activeTab === 'REPORTS_ENGINE' && (
+          <ReportsEngineView />
+        )}
+
         {/* ================= TAB: TRIP ENGINE (6 RULES & SERVER SETTLEMENT) ================= */}
         {activeTab === 'TRIP_ENGINE' && (
           <TripEngineView />
+        )}
+
+        {/* ================= TAB: GOOGLE WORKSPACE (SHEETS & DRIVE PROJECTION) ================= */}
+        {activeTab === 'WORKSPACE_INTEGRATION' && (
+          <WorkspaceIntegrationView />
         )}
 
         {/* ================= TAB: EXCEPTION ENGINE (12 TYPES, 4 STATUSES, & AUDIT TRAIL) ================= */}

@@ -7,11 +7,23 @@ export interface BaseAuditedEntity {
   updatedBy: string;
 }
 
+export type UserRole = 
+  | 'PROJECT_ADMIN' 
+  | 'SUPER_ADMIN' 
+  | 'SITE_SUPERVISOR' 
+  | 'SUPERVISOR' 
+  | 'DISPATCHER' 
+  | 'FINANCE_AUDITOR' 
+  | 'SCALE_OPERATOR' 
+  | 'DRIVER' 
+  | 'VIEWER';
+
 export interface AuthUserContext {
   userId: string;
   email: string;
   displayName: string;
-  role: 'PROJECT_ADMIN' | 'DISPATCHER' | 'FINANCE_AUDITOR' | 'DRIVER' | 'VIEWER';
+  role: UserRole;
+  assignedProjectIds?: string[];
   ipAddress?: string;
   userAgent?: string;
 }

@@ -136,7 +136,7 @@ export interface UserEntity extends BaseAuditedEntity {
   userId: string;
   email: string;
   fullName: string;
-  role: 'PROJECT_ADMIN' | 'DISPATCHER' | 'FINANCE_AUDITOR' | 'DRIVER' | 'VIEWER';
+  role: 'PROJECT_ADMIN' | 'SUPER_ADMIN' | 'SITE_SUPERVISOR' | 'SUPERVISOR' | 'DISPATCHER' | 'FINANCE_AUDITOR' | 'SCALE_OPERATOR' | 'DRIVER' | 'VIEWER';
   assignedProjectIds: string[];
   isActive: boolean;
 }
@@ -192,7 +192,7 @@ export interface TripEntity extends BaseAuditedEntity {
   };
   pricingSnapshot: {
     pricingRuleId: string;
-    pricingType: 'PER_TRIP' | 'PER_TON';
+    pricingType: 'PER_TRIP' | 'PER_TON' | 'LEGACY_UNRESOLVED' | 'PER_KM' | 'FLAT_RATE';
     agreedRate: number;
     currency: string;
     settlementBase: number;
@@ -326,9 +326,9 @@ export interface TripExceptionEntity extends BaseAuditedEntity {
 export interface AuditLogEntity extends BaseAuditedEntity {
   auditLogId: string;
   projectId: string;
-  entityType: 'TRIP' | 'PRICING_RULE' | 'TRUCK' | 'CARRIER' | 'PROJECT' | 'USER_ROLE' | 'FINANCIAL_ADJUSTMENT' | 'EXCEPTION';
+  entityType: 'TRIP' | 'PRICING_RULE' | 'TRUCK' | 'CARRIER' | 'PROJECT' | 'USER_ROLE' | 'FINANCIAL_ADJUSTMENT' | 'EXCEPTION' | 'MIGRATION_BATCH';
   entityId: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'FORCE_STATUS_CHANGE' | 'RECALCULATE_PRICING' | 'WAIVE_EXCEPTION';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'FORCE_STATUS_CHANGE' | 'RECALCULATE_PRICING' | 'WAIVE_EXCEPTION' | 'COMMIT_LEGACY_MIGRATION';
   actor: {
     userId: string;
     email: string;
