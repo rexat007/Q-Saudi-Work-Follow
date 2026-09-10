@@ -4,9 +4,10 @@
  */
 
 import { OutboxOperation, CacheStoreName, CacheStoreMetadata } from '../../types/offline';
+import { ConflictRecord } from '../../types/conflict';
 
 const DB_NAME = 'q_saudi_logistics_offline_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export class IndexedDBService {
   private dbPromise: Promise<IDBDatabase> | null = null;
@@ -86,6 +87,15 @@ export class IndexedDBService {
         // 9. Metadata store for version and timestamp tracking
         if (!db.objectStoreNames.contains('metadata')) {
           db.createObjectStore('metadata', { keyPath: 'storeName' });
+        }
+
+        // 10. Conflicts store for explicit conflict records and resolutions
+        if (!db.objectStoreNames.contains('conflicts')) {
+          const conflictStore = db.createObjectStore('conflicts', { keyPath: 'conflictId' });
+          conflictStore.createIndex('status', 'status', { unique: false });
+          conflictStore.createIndex('conflictType', 'conflictType', { unique: false });
+          conflictStore.createIndex('operationId', 'operationId', { unique: false });
+          conflictStore.createIndex('projectId', 'projectId', { unique: false });
         }
       };
 
@@ -229,6 +239,51 @@ export class IndexedDBService {
       ...extra,
     };
     return this.put<OutboxOperation>('outbox', updated);
+  }
+
+  // ---------------- Conflicts Storage Operations ---------------- //
+
+  public async getConflictRecords(): Promise<ConflictRecord[]> {
+    try {
+      const records = await this.getAll<ConflictRecord>('conflicts');
+      return records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch {
+      return [];
+    }
+  }
+
+  public async getConflictRecordById(conflictId: string): Promise<ConflictRecord | undefined> {
+    try {
+      return this.getById<ConflictRecord>('conflicts', conflictId);
+    } catch {
+      return undefined;
+    }
+  }
+
+  public async saveConflictRecord(conflict: ConflictRecord): Promise<void> {
+    try {
+      return this.put<ConflictRecord>('conflicts', conflict);
+    } catch (err) {
+      console.warn('Failed to save conflict record into IndexedDB:', err);
+    }
+  }
+
+  public async updateConflictRecord(
+    conflictId: string, 
+    updates: Partial<ConflictRecord>
+  ): Promise<void> {
+    try {
+      const existing = await this.getConflictRecordById(conflictId);
+      if (!existing) return;
+      const updated: ConflictRecord = {
+        ...existing,
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      };
+      return this.put<ConflictRecord>('conflicts', updated);
+    } catch (err) {
+      console.warn('Failed to update conflict record in IndexedDB:', err);
+    }
   }
 }
 

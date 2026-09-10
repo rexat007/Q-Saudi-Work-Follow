@@ -43,6 +43,7 @@ import { OfflineIndicator } from './components/offline/OfflineIndicator';
 import { OutboxDrawer } from './components/offline/OutboxDrawer';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { outboxService } from './services/offline/outbox.service';
+import { conflictResolutionService } from './services/offline/conflictResolution.service';
 import { Wifi, Inbox } from 'lucide-react';
 
 export default function App() {
@@ -55,13 +56,19 @@ export default function App() {
   const [isOutboxOpen, setIsOutboxOpen] = useState<boolean>(false);
   const { isOnline, isSimulatedOffline } = useOnlineStatus();
   const [pendingCount, setPendingCount] = useState<number>(0);
+  const [conflictCount, setConflictCount] = useState<number>(0);
 
   useEffect(() => {
     const updateCount = async () => {
       try {
-        const ops = await outboxService.getOperations();
+        const [ops, confs] = await Promise.all([
+          outboxService.getOperations(),
+          conflictResolutionService.getConflicts(),
+        ]);
         const pending = ops.filter(o => o.status === 'PENDING' || o.status === 'FAILED' || o.status === 'SENDING').length;
+        const openConflicts = confs.filter(c => c.status === 'OPEN').length;
         setPendingCount(pending);
+        setConflictCount(openConflicts);
       } catch (e) {
         // ignore
       }
@@ -333,6 +340,19 @@ export default function App() {
                 {pendingCount}
               </span>
             </button>
+
+            {/* Conflict Alert Pill */}
+            {conflictCount > 0 && (
+              <button
+                id="header-conflicts-btn"
+                onClick={() => setIsOutboxOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-100 hover:bg-purple-200 border border-purple-400 text-purple-950 shadow-2xs animate-pulse transition-all"
+                title="تنبيه: يوجد تعارضات تشغيلية تتطلب حلاً صريحاً (Anti-LWW)"
+              >
+                <ShieldAlert className="w-3.5 h-3.5 text-purple-700" />
+                <span>{conflictCount} تعارض تشغيلي</span>
+              </button>
+            )}
 
             {/* PWA Install Button */}
             <PWAInstallButton />

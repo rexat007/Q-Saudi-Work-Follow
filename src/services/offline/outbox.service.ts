@@ -23,6 +23,7 @@ import { tripEngineService, MasterPricingRule, MASTER_PRICING_RULES } from '../t
 import { tripStateMachine } from '../tripStateMachine.service';
 import { syncOperationRepository } from '../../repositories/syncOperation.repository';
 import { TripRecord, TripLifecycleEvent, TripAuditLog } from '../../types/tripEngine';
+import { conflictResolutionService } from './conflictResolution.service';
 
 const DEVICE_ID_KEY = 'q_saudi_device_id';
 
@@ -162,11 +163,19 @@ export class OutboxService {
             continue;
           }
 
-          // Check for Version/State Conflict
-          const conflict = this.detectStateConflict(op);
+          // Step 3.5: Conflict Detection Engine (No Last-Write-Wins)
+          // Preserves local command, preserves server state, records conflict, and blocks sync until explicit resolution
+          const conflict = conflictResolutionService.detectConflict(op);
           if (conflict) {
             await indexedDBService.updateOutboxStatus(op.operationId, 'CONFLICT', {
-              conflictDetails: conflict,
+              conflictDetails: {
+                conflictId: conflict.conflictId,
+                conflictType: conflict.conflictType,
+                clientVersion: conflict.localCommand.version,
+                serverVersion: conflict.serverState.serverVersion,
+                conflictField: conflict.diffFields[0]?.field,
+                messageAr: conflict.descriptionAr,
+              },
             });
             conflictCount++;
             continue;
@@ -274,23 +283,23 @@ export class OutboxService {
       const tripSerial = p.tripSerial || `TRP-NEOM-${Math.floor(1000 + Math.random() * 9000)}`;
       const nowIso = new Date().toISOString();
 
-      // Ensure pricing rule exists
-      let pricingRule = MASTER_PRICING_RULES.find(r => r.pricingRuleId === p.pricingRuleId);
-      if (!pricingRule) {
-        pricingRule = p.pricingSnapshot || {
-          pricingRuleId: p.pricingRuleId || 'PRC-DEFAULT',
-          name: 'تسعيرة معتمدة محلياً',
-          pricingType: 'PER_TON',
-          agreedRate: 8.5,
-          currency: 'SAR',
-        };
-      }
+      // Pricing Invariance Mandate:
+      // If the trip was created offline with a valid Pricing Snapshot, do NOT alter the trip price later due to server price updates.
+      // The new server price applies strictly to future trips.
+      const snapshot = p.pricingSnapshot;
+      const agreedRate = snapshot?.agreedRate !== undefined ? snapshot.agreedRate : (p.agreedRate || 8.5);
+      const pricingType = snapshot?.pricingType || p.pricingType || 'PER_TON';
+      const pricingRuleId = snapshot?.pricingRuleId || p.pricingRuleId || 'PRC-AGG-TON-01';
+      const ruleName = snapshot?.ruleName || 'تسعيرة وثيقة التحميل المحمية';
 
       const calculatedNet = p.grossWeight - p.tareWeight;
       const netTons = parseFloat((calculatedNet / 1000).toFixed(3));
-      const settlementAmount = p.pricingType === 'PER_TON' 
-        ? parseFloat((netTons * pricingRule.agreedRate).toFixed(2))
-        : pricingRule.agreedRate;
+      
+      const settlementAmount = (snapshot && snapshot.settlementAmount !== undefined)
+        ? snapshot.settlementAmount
+        : (p.settlementAmount !== undefined 
+          ? p.settlementAmount 
+          : (pricingType === 'PER_TON' ? parseFloat((netTons * agreedRate).toFixed(2)) : agreedRate));
 
       const serverTrip: TripRecord = {
         tripId,
@@ -307,11 +316,11 @@ export class OutboxService {
         netWeight: calculatedNet,
         destNetWeight: null,
         varianceWeight: null,
-        pricingRuleId: pricingRule.pricingRuleId,
-        pricingType: pricingRule.pricingType,
-        agreedRate: pricingRule.agreedRate,
-        currency: pricingRule.currency || 'SAR',
-        settlementBase: pricingRule.pricingType === 'PER_TON' ? netTons : 1,
+        pricingRuleId,
+        pricingType,
+        agreedRate,
+        currency: snapshot?.currency || p.currency || 'SAR',
+        settlementBase: pricingType === 'PER_TON' ? netTons : 1,
         settlementAmount,
         loaderId: p.loaderId || 'SCALE-OP-OFFLINE',
         unloaderId: null,
@@ -320,22 +329,22 @@ export class OutboxService {
         loadTime: p.loadTime || nowIso,
         arrivalTime: null,
         unloadTime: null,
-        notes: `${p.notes || ''} [تمت مزامنة العملية خادومياً من Outbox بنجاح]`.trim(),
+        notes: `${p.notes || ''} [تمت مزامنة العملية خادومياً مع حماية لقطة التسعير الميدانية]`.trim(),
         createdAt: p.createdAt || nowIso,
         createdBy: op.userId,
         updatedAt: nowIso,
         updatedBy: op.userId,
-        pricingSnapshot: p.pricingSnapshot || {
-          pricingRuleId: pricingRule.pricingRuleId,
-          pricingType: pricingRule.pricingType,
-          agreedRate: pricingRule.agreedRate,
-          currency: pricingRule.currency || 'SAR',
-          settlementBase: pricingRule.pricingType === 'PER_TON' ? netTons : 1,
+        pricingSnapshot: snapshot || {
+          pricingRuleId,
+          pricingType,
+          agreedRate,
+          currency: 'SAR',
+          settlementBase: pricingType === 'PER_TON' ? netTons : 1,
           settlementAmount,
-          ruleName: pricingRule.name,
+          ruleName,
           pricingSnapshotAt: nowIso,
-          effectiveFrom: pricingRule.effectiveFrom || '2026-01-01',
-          effectiveTo: pricingRule.effectiveTo || '2026-12-31',
+          effectiveFrom: '2026-01-01',
+          effectiveTo: '2026-12-31',
         },
         entitySnapshots: p.entitySnapshots,
       };

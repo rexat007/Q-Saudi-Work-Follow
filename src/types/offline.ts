@@ -30,12 +30,16 @@ export interface OutboxOperation {
     messageAr?: string;
   };
   conflictDetails?: {
+    conflictId?: string;
+    conflictType?: import('./conflict').ConflictType;
     clientVersion?: number;
     serverVersion?: number;
     conflictField?: string;
     messageAr?: string;
   };
 }
+
+export * from './conflict';
 
 export type CacheStoreName = 
   | 'projects' 
