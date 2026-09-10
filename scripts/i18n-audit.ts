@@ -30,6 +30,9 @@ function isMeaningful(text: string): boolean {
   if (/^(https?:\/\/|mailto:|tel:)/.test(value)) return false;
   return /[A-Za-z\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(value);
 }
+function jsxAttributeName(name: ts.JsxAttributeName): string {
+  return ts.isIdentifier(name) ? name.text : name.getText();
+}
 function isInsideTranslation(node: ts.Node): boolean {
   let p: ts.Node | undefined = node.parent;
   while (p) {
@@ -53,7 +56,7 @@ for (const file of files(SRC)) {
       }
     }
     if (ts.isJsxAttribute(node) && node.initializer && ts.isStringLiteral(node.initializer)) {
-      const name = node.name.text;
+      const name = jsxAttributeName(node.name);
       const text = clean(node.initializer.text);
       if (USER_ATTRS.has(name) && isMeaningful(text) && !isInsideTranslation(node)) {
         const pos = sf.getLineAndCharacterOfPosition(node.getStart(sf));
