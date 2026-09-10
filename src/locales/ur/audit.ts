@@ -1,0 +1,2 @@
+import { AuditTranslations } from '../types';
+export const audit: AuditTranslations = {auditLog:'آڈٹ لاگ',securityAudit:'سیکیورٹی آڈٹ',entityType:'ریکارڈ کی قسم',actionType:'کارروائی کی قسم',beforeState:'ترمیم سے پہلے',afterState:'ترمیم کے بعد',performedBy:'کارروائی کرنے والا',ipAddress:'IP پتہ',timestamp:'وقت',changeSummary:'تبدیلی کا خلاصہ',nonRepudiation:'ناقابل تردید ریکارڈ',tamperEvident:'چھیڑ چھاڑ سے محفوظ',verifySignatures:'دستخط کی تصدیق',exportAuditTrail:'آڈٹ ٹریل برآمد',auditDomains:'آڈٹ ڈومینز',passedCount:'کامیاب',failedCount:'ناکام'};
