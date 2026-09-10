@@ -29,6 +29,8 @@ import { tripRepository } from '../../repositories/trip.repository';
 import { CarrierEntity, MaterialEntity, TruckEntity, DriverEntity, ProjectEntity } from '../../types/entities';
 import { normalizeName, normalizePlate, normalizePhone, normalizeIdNumber, normalizeCode, normalizeArabicText } from '../../utils/normalization';
 import { runMasterDataTests, MasterDataTestCaseResult } from '../../tests/masterData.test';
+import { useAuth } from '../../firebase/authContext';
+import { DEFAULT_PROJECTS, DEFAULT_CARRIERS, DEFAULT_MATERIALS, DEFAULT_TRUCKS, DEFAULT_DRIVERS, buildDefaultOverview } from '../../data/defaultMasterData';
 
 const MOCK_AUTH_CONTEXT = {
   userId: 'USR-ADMIN-01',
@@ -38,6 +40,7 @@ const MOCK_AUTH_CONTEXT = {
 };
 
 export const MasterDataView: React.FC = () => {
+  const { user, isAuthReady, signInWithGoogle } = useAuth();
   const [projects, setProjects] = useState<ProjectEntity[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [activeModule, setActiveModule] = useState<'CARRIERS' | 'MATERIALS' | 'TRUCKS' | 'DRIVERS' | 'TESTS'>('CARRIERS');
@@ -46,6 +49,12 @@ export const MasterDataView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [carrierFilter, setCarrierFilter] = useState<string>('ALL');
+
+  // In-memory demo data state (for unauthenticated preview mode)
+  const [localCarriers, setLocalCarriers] = useState<CarrierEntity[]>(DEFAULT_CARRIERS);
+  const [localMaterials, setLocalMaterials] = useState<MaterialEntity[]>(DEFAULT_MATERIALS);
+  const [localTrucks, setLocalTrucks] = useState<TruckEntity[]>(DEFAULT_TRUCKS);
+  const [localDrivers, setLocalDrivers] = useState<DriverEntity[]>(DEFAULT_DRIVERS);
 
   // Automated Tests State
   const [testResults, setTestResults] = useState<{
@@ -58,12 +67,23 @@ export const MasterDataView: React.FC = () => {
   const [testingRunning, setTestingRunning] = useState<boolean>(false);
 
   const handleExecuteTests = async () => {
+    if (!user) {
+      setActionNotice({
+        type: 'error',
+        message: 'يتطلب تشغيل الفحوصات الآلية على Firestore تسجيل الدخول بحساب Google أولاً.',
+      });
+      return;
+    }
     setTestingRunning(true);
     try {
       const res = await runMasterDataTests();
       setTestResults(res);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setActionNotice({
+        type: 'error',
+        message: `فشلت الفحوصات: ${err.message || String(err)}`,
+      });
     } finally {
       setTestingRunning(false);
     }
@@ -106,305 +126,79 @@ export const MasterDataView: React.FC = () => {
   const [newDriver, setNewDriver] = useState({ driverId: '', name: '', phone: '0501234567', idNumber: '1087654321', carrierId: '' });
   const [actionNotice, setActionNotice] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // Initialize sample data if empty
+  // Initialize sample data: Firestore if authenticated, local demo state if unauthenticated
   useEffect(() => {
     async function initData() {
+      if (!isAuthReady) return;
       setLoading(true);
+
+      // Safe demo mode when unauthenticated (avoids permission errors)
+      if (!user) {
+        setProjects(DEFAULT_PROJECTS);
+        const defaultProjId = DEFAULT_PROJECTS[0].projectId;
+        setSelectedProjectId(defaultProjId);
+        setOverview(buildDefaultOverview(defaultProjId, localCarriers, localMaterials, localTrucks, localDrivers));
+        setLoading(false);
+        return;
+      }
+
+      // Authenticated mode: load from live Firestore
       try {
         let pList = await projectRepository.listAll();
-        if (pList.length === 0) {
-          // Bootstrap a realistic Saudi Infrastructure Project
-          const sampleProject: ProjectEntity = {
-            projectId: 'PRJ-NEOM-NORTH-01',
-            projectCode: 'NEOM-N01',
-            nameAr: 'مشروع حزم البنية التحتية - نيوم الشمالية',
-            nameEn: 'NEOM North Infrastructure Package',
-            clientName: 'شركة نيوم للإنشاءات',
-            location: {
-              lat: 28.003,
-              lng: 35.212,
-              geoFenceRadiusMeters: 500,
-              addressAr: 'نيوم - المنطقة الشمالية',
-            },
-            settings: {
-              zatcaTaxNumber: '300012345600003',
-              vatRatePercent: 15,
-              allowDriverSelfDispatch: false,
-            },
-            authorizedCarrierIds: ['CAR-ALMAJDOUIE', 'CAR-BINLADIN'],
-            authorizedMaterialIds: ['MAT-AGG-01', 'MAT-SND-01'],
-            status: 'ACTIVE',
-            createdAt: new Date() as any,
-            createdBy: 'SYSTEM',
-            updatedAt: new Date() as any,
-            updatedBy: 'SYSTEM',
-          };
+        if (!pList || pList.length === 0) {
+          const sampleProject = DEFAULT_PROJECTS[0];
           await projectRepository.create(sampleProject);
 
-          // Seed Carriers
-          await carrierRepository.create({
-            carrierId: 'CAR-ALMAJDOUIE',
-            projectId: sampleProject.projectId,
-            name: 'شركة المجدوعي اللوجستية',
-            normalizedName: normalizeName('شركة المجدوعي اللوجستية'),
-            status: 'ACTIVE',
-            companyNameAr: 'شركة المجدوعي اللوجستية',
-            commercialRegistrationNo: '1010334455',
-            transportLicenseNo: 'TGA-KSA-9988',
-            isActive: true,
-            createdBy: 'SYSTEM',
-            updatedBy: 'SYSTEM',
-          });
-          await carrierRepository.create({
-            carrierId: 'CAR-BINLADIN',
-            projectId: sampleProject.projectId,
-            name: 'شركة أبناء بن لادن للنقل',
-            normalizedName: normalizeName('شركة أبناء بن لادن للنقل'),
-            status: 'ACTIVE',
-            companyNameAr: 'شركة أبناء بن لادن للنقل',
-            commercialRegistrationNo: '1010998877',
-            transportLicenseNo: 'TGA-KSA-7766',
-            isActive: true,
-            createdBy: 'SYSTEM',
-            updatedBy: 'SYSTEM',
-          });
-          await carrierRepository.create({
-            carrierId: 'CAR-ALSHARQI',
-            projectId: sampleProject.projectId,
-            name: 'مؤسسة الشرقي للنقل والتجارة',
-            normalizedName: normalizeName('مؤسسة الشرقي للنقل والتجارة'),
-            status: 'INACTIVE',
-            companyNameAr: 'مؤسسة الشرقي للنقل والتجارة',
-            commercialRegistrationNo: '1010112233',
-            isActive: false,
-            createdBy: 'SYSTEM',
-            updatedBy: 'SYSTEM',
-          });
-
-          // Seed Materials
-          await materialRepository.create({
-            materialId: 'MAT-AGG-01',
-            projectId: sampleProject.projectId,
-            name: 'ركام بازلتي مقاس 3/4 بوصة',
-            normalizedName: normalizeName('ركام بازلتي مقاس 3/4 بوصة'),
-            code: 'AGG-01',
-            status: 'ACTIVE',
-            unitOfMeasure: 'TON',
-            standardDensityTonPerM3: 1.65,
-            isActive: true,
-            createdBy: 'SYSTEM',
-            updatedBy: 'SYSTEM',
-          });
-          await materialRepository.create({
-            materialId: 'MAT-SND-01',
-            projectId: sampleProject.projectId,
-            name: 'رمل أحمر مغسول للخلطات الخرسانية',
-            normalizedName: normalizeName('رمل أحمر مغسول للخلطات الخرسانية'),
-            code: 'SND-01',
-            status: 'ACTIVE',
-            unitOfMeasure: 'TON',
-            standardDensityTonPerM3: 1.5,
-            isActive: true,
-            createdBy: 'SYSTEM',
-            updatedBy: 'SYSTEM',
-          });
-          await materialRepository.create({
-            materialId: 'MAT-SUB-01',
-            projectId: sampleProject.projectId,
-            name: 'طبقة أساس حصوي مدموك (Sub-base)',
-            normalizedName: normalizeName('طبقة أساس حصوي مدموك (Sub-base)'),
-            code: 'SUB-01',
-            status: 'INACTIVE',
-            unitOfMeasure: 'TON',
-            isActive: false,
-            createdBy: 'SYSTEM',
-            updatedBy: 'SYSTEM',
-          });
-
-          // Seed Trucks (Truck -> Carrier)
-          await truckRepository.create({
-            truckId: 'TRK-9871',
-            projectId: sampleProject.projectId,
-            carrierId: 'CAR-ALMAJDOUIE',
-            plate: 'أ ب ج 9871',
-            normalizedPlate: normalizePlate('أ ب ج 9871'),
-            plateNumberAr: 'أ ب ج 9871',
-            status: 'ACTIVE',
-            tareWeightKg: 14200,
-            maxGrossWeightKg: 45000,
-            legalPayloadLimitKg: 30800,
-            isActive: true,
-            createdBy: 'SYSTEM',
-            updatedBy: 'SYSTEM',
-          });
-          await truckRepository.create({
-            truckId: 'TRK-5542',
-            projectId: sampleProject.projectId,
-            carrierId: 'CAR-ALMAJDOUIE',
-            plate: 'د هـ و 5542',
-            normalizedPlate: normalizePlate('د هـ و 5542'),
-            plateNumberAr: 'د هـ و 5542',
-            status: 'ACTIVE',
-            tareWeightKg: 13800,
-            maxGrossWeightKg: 45000,
-            legalPayloadLimitKg: 31200,
-            isActive: true,
-            createdBy: 'SYSTEM',
-            updatedBy: 'SYSTEM',
-          });
-          await truckRepository.create({
-            truckId: 'TRK-1122',
-            projectId: sampleProject.projectId,
-            carrierId: 'CAR-BINLADIN',
-            plate: 'ر ز س 1122',
-            normalizedPlate: normalizePlate('ر ز س 1122'),
-            plateNumberAr: 'ر ز س 1122',
-            status: 'ACTIVE',
-            tareWeightKg: 14500,
-            maxGrossWeightKg: 45000,
-            legalPayloadLimitKg: 30500,
-            isActive: true,
-            createdBy: 'SYSTEM',
-            updatedBy: 'SYSTEM',
-          });
-
-          // Seed Drivers (Driver -> Carrier)
-          await driverRepository.create({
-            driverId: 'DRV-101',
-            projectId: sampleProject.projectId,
-            carrierId: 'CAR-ALMAJDOUIE',
-            name: 'أحمد محمود القرني',
-            normalizedName: normalizeName('أحمد محمود القرني'),
-            fullNameAr: 'أحمد محمود القرني',
-            phone: '0551234567',
-            idNumber: '1098765432',
-            nationalOrIqamaId: '1098765432',
-            status: 'ACTIVE',
-            isActive: true,
-            createdBy: 'SYSTEM',
-            updatedBy: 'SYSTEM',
-          });
-          await driverRepository.create({
-            driverId: 'DRV-102',
-            projectId: sampleProject.projectId,
-            carrierId: 'CAR-ALMAJDOUIE',
-            name: 'خالد عبد الله العتيبي',
-            normalizedName: normalizeName('خالد عبد الله العتيبي'),
-            fullNameAr: 'خالد عبد الله العتيبي',
-            phone: '0509876543',
-            idNumber: '1012345678',
-            nationalOrIqamaId: '1012345678',
-            status: 'ACTIVE',
-            isActive: true,
-            createdBy: 'SYSTEM',
-            updatedBy: 'SYSTEM',
-          });
-          await driverRepository.create({
-            driverId: 'DRV-201',
-            projectId: sampleProject.projectId,
-            carrierId: 'CAR-BINLADIN',
-            name: 'محمد إبراهيم الشمري',
-            normalizedName: normalizeName('محمد إبراهيم الشمري'),
-            fullNameAr: 'محمد إبراهيم الشمري',
-            phone: '0543322110',
-            idNumber: '2088776655',
-            nationalOrIqamaId: '2088776655',
-            status: 'ACTIVE',
-            isActive: true,
-            createdBy: 'SYSTEM',
-            updatedBy: 'SYSTEM',
-          });
-
-          // Seed a sample historical trip that references CAR-ALMAJDOUIE, TRK-9871, DRV-101, MAT-AGG-01
-          // to demonstrate trip usage protection
-          await tripRepository.create({
-            tripId: 'TRP-HISTORICAL-01',
-            tripNumber: 'TRP-2026-00088',
-            projectId: sampleProject.projectId,
-            carrierId: 'CAR-ALMAJDOUIE',
-            truckId: 'TRK-9871',
-            driverId: 'DRV-101',
-            materialId: 'MAT-AGG-01',
-            pricingRuleId: 'PR-DEFAULT',
-            status: 'COMPLETED',
-            carrierSnapshot: {
-              carrierId: 'CAR-ALMAJDOUIE',
-              companyNameAr: 'شركة المجدوعي اللوجستية',
-              commercialRegistrationNo: '1010334455',
-            },
-            truckSnapshot: {
-              truckId: 'TRK-9871',
-              plateNumberAr: 'أ ب ج 9871',
-              tareWeightKg: 14200,
-              legalPayloadLimitKg: 30800,
-            },
-            driverSnapshot: {
-              driverId: 'DRV-101',
-              fullNameAr: 'أحمد محمود القرني',
-              nationalOrIqamaId: '1098765432',
-              phone: '0551234567',
-            },
-            materialSnapshot: {
-              materialId: 'MAT-AGG-01',
-              code: 'AGG-01',
-              nameAr: 'ركام بازلتي مقاس 3/4 بوصة',
-              unitOfMeasure: 'TON',
-            },
-            pricingSnapshot: {
-              pricingRuleId: 'PR-DEFAULT',
-              pricingType: 'PER_TON',
-              agreedRate: 45,
-              currency: 'SAR',
-              settlementBase: 30.5,
-              settlementAmount: 1372.5,
-              pricingSnapshotAt: new Date().toISOString(),
-            },
-            weights: {
-              originTareKg: 14200,
-              originGrossKg: 44700,
-              originNetKg: 30500,
-              billableWeightKg: 30500,
-            },
-            financials: {
-              baseAmountSAR: 1372.5,
-              demurrageAmountSAR: 0,
-              deductionsAmountSAR: 0,
-              subtotalSAR: 1372.5,
-              vatAmountSAR: 205.88,
-              totalAmountSAR: 1578.38,
-              currency: 'SAR',
-              isFinalized: true,
-            },
-            clientUUID: 'UUID-SEED-01',
-            syncStatus: 'SYNCED',
-            hasExceptions: false,
-            activeExceptionCount: 0,
-            createdBy: 'SYSTEM',
-            updatedBy: 'SYSTEM',
-          });
+          for (const c of DEFAULT_CARRIERS) {
+            await carrierRepository.create(c);
+          }
+          for (const m of DEFAULT_MATERIALS) {
+            await materialRepository.create(m);
+          }
+          for (const t of DEFAULT_TRUCKS) {
+            await truckRepository.create(t);
+          }
+          for (const d of DEFAULT_DRIVERS) {
+            await driverRepository.create(d);
+          }
 
           pList = [sampleProject];
         }
 
         setProjects(pList);
-        setSelectedProjectId(pList[0].projectId);
+        if (pList.length > 0) {
+          setSelectedProjectId(pList[0].projectId);
+        }
       } catch (err: any) {
-        console.error('Failed to init master data:', err);
+        console.warn('Live Firestore synchronization issue, using fallback data:', err);
+        setActionNotice({
+          type: 'error',
+          message: 'تعذر الاتصال ببيانات Firestore المباشرة، تم تفعيل وضع المعاينة المحلي.',
+        });
+        setProjects(DEFAULT_PROJECTS);
+        const defaultProjId = DEFAULT_PROJECTS[0].projectId;
+        setSelectedProjectId(defaultProjId);
+        setOverview(buildDefaultOverview(defaultProjId, localCarriers, localMaterials, localTrucks, localDrivers));
       } finally {
         setLoading(false);
       }
     }
     initData();
-  }, []);
+  }, [user, isAuthReady]);
 
   // Refresh current project overview
   const refreshOverview = async (pId: string) => {
     if (!pId) return;
+    if (!user) {
+      setOverview(buildDefaultOverview(pId, localCarriers, localMaterials, localTrucks, localDrivers));
+      return;
+    }
     try {
       const ov = await masterDataService.getProjectMasterData(pId);
       setOverview(ov);
     } catch (err: any) {
-      console.error('Failed to load project master data:', err);
+      console.warn('Failed to load project master data from Firestore, using local overview:', err);
+      setOverview(buildDefaultOverview(pId, localCarriers, localMaterials, localTrucks, localDrivers));
     }
   };
 
@@ -418,6 +212,36 @@ export const MasterDataView: React.FC = () => {
   const handleToggleStatus = async (entityType: MasterEntityType, entityId: string, currentStatus: 'ACTIVE' | 'INACTIVE') => {
     if (!selectedProjectId) return;
     const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    const isAct = newStatus === 'ACTIVE';
+
+    if (!user) {
+      let updatedCarriers = localCarriers;
+      let updatedMaterials = localMaterials;
+      let updatedTrucks = localTrucks;
+      let updatedDrivers = localDrivers;
+
+      if (entityType === 'CARRIER') {
+        updatedCarriers = localCarriers.map(c => c.carrierId === entityId ? { ...c, status: newStatus, isActive: isAct } : c);
+        setLocalCarriers(updatedCarriers);
+      } else if (entityType === 'MATERIAL') {
+        updatedMaterials = localMaterials.map(m => m.materialId === entityId ? { ...m, status: newStatus, isActive: isAct } : m);
+        setLocalMaterials(updatedMaterials);
+      } else if (entityType === 'TRUCK') {
+        updatedTrucks = localTrucks.map(t => t.truckId === entityId ? { ...t, status: newStatus, isActive: isAct } : t);
+        setLocalTrucks(updatedTrucks);
+      } else if (entityType === 'DRIVER') {
+        updatedDrivers = localDrivers.map(d => d.driverId === entityId ? { ...d, status: newStatus, isActive: isAct } : d);
+        setLocalDrivers(updatedDrivers);
+      }
+
+      setOverview(buildDefaultOverview(selectedProjectId, updatedCarriers, updatedMaterials, updatedTrucks, updatedDrivers));
+      setActionNotice({
+        type: 'success',
+        message: `تم تحديث حالة السجل (${entityId}) بنجاح إلى [${newStatus}] (محلياً في وضع المعاينة).`,
+      });
+      return;
+    }
+
     try {
       await masterDataService.setEntityStatus(selectedProjectId, entityType, entityId, newStatus, MOCK_AUTH_CONTEXT);
       setActionNotice({
@@ -446,6 +270,23 @@ export const MasterDataView: React.FC = () => {
       success: null,
     });
 
+    if (!user) {
+      // Local safety check: TRK-9871, DRV-101, CAR-ALMAJDOUIE, MAT-AGG-01 are used in historical trip
+      const isHistorical = ['CAR-ALMAJDOUIE', 'TRK-9871', 'DRV-101', 'MAT-AGG-01'].includes(entityId);
+      setTimeout(() => {
+        setDeleteModal(prev => ({
+          ...prev,
+          checking: false,
+          usageResult: {
+            isUsed: isHistorical,
+            count: isHistorical ? 1 : 0,
+            tripNumbers: isHistorical ? ['TRP-2026-00088'] : [],
+          },
+        }));
+      }, 200);
+      return;
+    }
+
     try {
       const usage = await masterDataService.checkTripUsage(selectedProjectId, entityType, entityId);
       setDeleteModal(prev => ({
@@ -465,6 +306,40 @@ export const MasterDataView: React.FC = () => {
   // Confirm soft delete (setting INACTIVE)
   const handleConfirmSoftDelete = async () => {
     if (!deleteModal.entityId || !selectedProjectId) return;
+
+    if (!user) {
+      const entityId = deleteModal.entityId;
+      const entityType = deleteModal.entityType;
+      let updatedCarriers = localCarriers;
+      let updatedMaterials = localMaterials;
+      let updatedTrucks = localTrucks;
+      let updatedDrivers = localDrivers;
+
+      if (entityType === 'CARRIER') {
+        updatedCarriers = localCarriers.map(c => c.carrierId === entityId ? { ...c, status: 'INACTIVE' as const, isActive: false } : c);
+        setLocalCarriers(updatedCarriers);
+      } else if (entityType === 'MATERIAL') {
+        updatedMaterials = localMaterials.map(m => m.materialId === entityId ? { ...m, status: 'INACTIVE' as const, isActive: false } : m);
+        setLocalMaterials(updatedMaterials);
+      } else if (entityType === 'TRUCK') {
+        updatedTrucks = localTrucks.map(t => t.truckId === entityId ? { ...t, status: 'INACTIVE' as const, isActive: false } : t);
+        setLocalTrucks(updatedTrucks);
+      } else if (entityType === 'DRIVER') {
+        updatedDrivers = localDrivers.map(d => d.driverId === entityId ? { ...d, status: 'INACTIVE' as const, isActive: false } : d);
+        setLocalDrivers(updatedDrivers);
+      }
+
+      setOverview(buildDefaultOverview(selectedProjectId, updatedCarriers, updatedMaterials, updatedTrucks, updatedDrivers));
+      setDeleteModal(prev => ({
+        ...prev,
+        success: 'تم تعطيل السجل بنجاح (الحذف المنطقي Soft Delete) وحمايته من العمليات الجديدة.',
+      }));
+      setTimeout(() => {
+        setDeleteModal(prev => ({ ...prev, isOpen: false }));
+      }, 1500);
+      return;
+    }
+
     try {
       const res = await masterDataService.deleteMasterEntity(
         selectedProjectId,
@@ -491,6 +366,23 @@ export const MasterDataView: React.FC = () => {
   // Authorization toggle for Carrier
   const handleToggleCarrierAuth = async (carrierId: string, currentAuth: boolean) => {
     if (!selectedProjectId) return;
+
+    if (!user) {
+      setProjects(prev => prev.map(p => {
+        if (p.projectId !== selectedProjectId) return p;
+        const currentList = p.authorizedCarrierIds || [];
+        const nextList = currentAuth ? currentList.filter(id => id !== carrierId) : [...currentList, carrierId];
+        return { ...p, authorizedCarrierIds: nextList };
+      }));
+      setActionNotice({
+        type: 'success',
+        message: !currentAuth 
+          ? `تم تصريح الناقل (${carrierId}) للعمل في هذا المشروع (وضع المعاينة).`
+          : `تم إلغاء تصريح الناقل (${carrierId}) من هذا المشروع (وضع المعاينة).`,
+      });
+      return;
+    }
+
     try {
       await masterDataService.toggleCarrierAuthorization(selectedProjectId, carrierId, !currentAuth, MOCK_AUTH_CONTEXT);
       setActionNotice({
@@ -508,6 +400,23 @@ export const MasterDataView: React.FC = () => {
   // Authorization toggle for Material
   const handleToggleMaterialAuth = async (materialId: string, currentAuth: boolean) => {
     if (!selectedProjectId) return;
+
+    if (!user) {
+      setProjects(prev => prev.map(p => {
+        if (p.projectId !== selectedProjectId) return p;
+        const currentList = p.authorizedMaterialIds || [];
+        const nextList = currentAuth ? currentList.filter(id => id !== materialId) : [...currentList, materialId];
+        return { ...p, authorizedMaterialIds: nextList };
+      }));
+      setActionNotice({
+        type: 'success',
+        message: !currentAuth 
+          ? `تم اعتماد توريد المادة (${materialId}) في هذا المشروع (وضع المعاينة).`
+          : `تم حظر توريد المادة (${materialId}) من هذا المشروع (وضع المعاينة).`,
+      });
+      return;
+    }
+
     try {
       await masterDataService.toggleMaterialAuthorization(selectedProjectId, materialId, !currentAuth, MOCK_AUTH_CONTEXT);
       setActionNotice({
@@ -526,19 +435,34 @@ export const MasterDataView: React.FC = () => {
   const handleCreateCarrier = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProjectId || !newCarrier.carrierId || !newCarrier.name) return;
+
+    const carrierEntity: CarrierEntity = {
+      carrierId: newCarrier.carrierId.trim().toUpperCase(),
+      projectId: selectedProjectId,
+      name: newCarrier.name.trim(),
+      normalizedName: normalizeName(newCarrier.name.trim()),
+      status: 'ACTIVE',
+      companyNameAr: newCarrier.name.trim(),
+      commercialRegistrationNo: newCarrier.crNo,
+      isActive: true,
+      createdAt: new Date(),
+      createdBy: MOCK_AUTH_CONTEXT.userId,
+      updatedAt: new Date(),
+      updatedBy: MOCK_AUTH_CONTEXT.userId,
+    };
+
+    if (!user) {
+      const updated = [carrierEntity, ...localCarriers];
+      setLocalCarriers(updated);
+      setCreateModal({ isOpen: false, entityType: 'CARRIER' });
+      setNewCarrier({ carrierId: '', name: '', crNo: '1010000000', phone: '+966500000001' });
+      setOverview(buildDefaultOverview(selectedProjectId, updated, localMaterials, localTrucks, localDrivers));
+      setActionNotice({ type: 'success', message: 'تم إضافة الناقل بنجاح مع التطبيع التلقائي للاسم (محلياً).' });
+      return;
+    }
+
     try {
-      await carrierRepository.create({
-        carrierId: newCarrier.carrierId.trim().toUpperCase(),
-        projectId: selectedProjectId,
-        name: newCarrier.name.trim(),
-        normalizedName: normalizeName(newCarrier.name.trim()),
-        status: 'ACTIVE',
-        companyNameAr: newCarrier.name.trim(),
-        commercialRegistrationNo: newCarrier.crNo,
-        isActive: true,
-        createdBy: MOCK_AUTH_CONTEXT.userId,
-        updatedBy: MOCK_AUTH_CONTEXT.userId,
-      });
+      await carrierRepository.create(carrierEntity);
       setCreateModal({ isOpen: false, entityType: 'CARRIER' });
       setNewCarrier({ carrierId: '', name: '', crNo: '1010000000', phone: '+966500000001' });
       setActionNotice({ type: 'success', message: 'تم إضافة الناقل بنجاح مع التطبيع التلقائي للاسم.' });
@@ -551,19 +475,34 @@ export const MasterDataView: React.FC = () => {
   const handleCreateMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProjectId || !newMaterial.materialId || !newMaterial.name) return;
+
+    const matEntity: MaterialEntity = {
+      materialId: newMaterial.materialId.trim().toUpperCase(),
+      projectId: selectedProjectId,
+      name: newMaterial.name.trim(),
+      normalizedName: normalizeName(newMaterial.name.trim()),
+      code: normalizeCode(newMaterial.code),
+      status: 'ACTIVE',
+      unitOfMeasure: newMaterial.uom,
+      isActive: true,
+      createdAt: new Date(),
+      createdBy: MOCK_AUTH_CONTEXT.userId,
+      updatedAt: new Date(),
+      updatedBy: MOCK_AUTH_CONTEXT.userId,
+    };
+
+    if (!user) {
+      const updated = [matEntity, ...localMaterials];
+      setLocalMaterials(updated);
+      setCreateModal({ isOpen: false, entityType: 'MATERIAL' });
+      setNewMaterial({ materialId: '', name: '', code: 'AGG-02', uom: 'TON' });
+      setOverview(buildDefaultOverview(selectedProjectId, localCarriers, updated, localTrucks, localDrivers));
+      setActionNotice({ type: 'success', message: 'تم إضافة المادة بنجاح وتطبيع الرمز والاسم (محلياً).' });
+      return;
+    }
+
     try {
-      await materialRepository.create({
-        materialId: newMaterial.materialId.trim().toUpperCase(),
-        projectId: selectedProjectId,
-        name: newMaterial.name.trim(),
-        normalizedName: normalizeName(newMaterial.name.trim()),
-        code: normalizeCode(newMaterial.code),
-        status: 'ACTIVE',
-        unitOfMeasure: newMaterial.uom,
-        isActive: true,
-        createdBy: MOCK_AUTH_CONTEXT.userId,
-        updatedBy: MOCK_AUTH_CONTEXT.userId,
-      });
+      await materialRepository.create(matEntity);
       setCreateModal({ isOpen: false, entityType: 'MATERIAL' });
       setNewMaterial({ materialId: '', name: '', code: 'AGG-02', uom: 'TON' });
       setActionNotice({ type: 'success', message: 'تم إضافة المادة بنجاح وتطبيع الرمز والاسم.' });
@@ -576,22 +515,37 @@ export const MasterDataView: React.FC = () => {
   const handleCreateTruck = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProjectId || !newTruck.truckId || !newTruck.plate || !newTruck.carrierId) return;
+
+    const truckEntity: TruckEntity = {
+      truckId: newTruck.truckId.trim().toUpperCase(),
+      projectId: selectedProjectId,
+      carrierId: newTruck.carrierId,
+      plate: newTruck.plate.trim(),
+      normalizedPlate: normalizePlate(newTruck.plate.trim()),
+      plateNumberAr: newTruck.plate.trim(),
+      status: 'ACTIVE',
+      tareWeightKg: Number(newTruck.tareKg),
+      maxGrossWeightKg: Number(newTruck.grossKg),
+      legalPayloadLimitKg: Math.max(0, Number(newTruck.grossKg) - Number(newTruck.tareKg)),
+      isActive: true,
+      createdAt: new Date(),
+      createdBy: MOCK_AUTH_CONTEXT.userId,
+      updatedAt: new Date(),
+      updatedBy: MOCK_AUTH_CONTEXT.userId,
+    };
+
+    if (!user) {
+      const updated = [truckEntity, ...localTrucks];
+      setLocalTrucks(updated);
+      setCreateModal({ isOpen: false, entityType: 'TRUCK' });
+      setNewTruck({ truckId: '', plate: '', carrierId: '', tareKg: 14000, grossKg: 45000 });
+      setOverview(buildDefaultOverview(selectedProjectId, localCarriers, localMaterials, updated, localDrivers));
+      setActionNotice({ type: 'success', message: 'تم تسجيل الشاحنة وربطها بالناقل (Truck → Carrier) محلياً.' });
+      return;
+    }
+
     try {
-      await truckRepository.create({
-        truckId: newTruck.truckId.trim().toUpperCase(),
-        projectId: selectedProjectId,
-        carrierId: newTruck.carrierId,
-        plate: newTruck.plate.trim(),
-        normalizedPlate: normalizePlate(newTruck.plate.trim()),
-        plateNumberAr: newTruck.plate.trim(),
-        status: 'ACTIVE',
-        tareWeightKg: Number(newTruck.tareKg),
-        maxGrossWeightKg: Number(newTruck.grossKg),
-        legalPayloadLimitKg: Math.max(0, Number(newTruck.grossKg) - Number(newTruck.tareKg)),
-        isActive: true,
-        createdBy: MOCK_AUTH_CONTEXT.userId,
-        updatedBy: MOCK_AUTH_CONTEXT.userId,
-      });
+      await truckRepository.create(truckEntity);
       setCreateModal({ isOpen: false, entityType: 'TRUCK' });
       setNewTruck({ truckId: '', plate: '', carrierId: '', tareKg: 14000, grossKg: 45000 });
       setActionNotice({ type: 'success', message: 'تم تسجيل الشاحنة وربطها بالناقل (Truck → Carrier) مع تطبيع اللوحة.' });
@@ -604,22 +558,37 @@ export const MasterDataView: React.FC = () => {
   const handleCreateDriver = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProjectId || !newDriver.driverId || !newDriver.name || !newDriver.carrierId) return;
+
+    const driverEntity: DriverEntity = {
+      driverId: newDriver.driverId.trim().toUpperCase(),
+      projectId: selectedProjectId,
+      carrierId: newDriver.carrierId,
+      name: newDriver.name.trim(),
+      normalizedName: normalizeName(newDriver.name.trim()),
+      fullNameAr: newDriver.name.trim(),
+      phone: normalizePhone(newDriver.phone),
+      idNumber: normalizeIdNumber(newDriver.idNumber),
+      nationalOrIqamaId: normalizeIdNumber(newDriver.idNumber),
+      status: 'ACTIVE',
+      isActive: true,
+      createdAt: new Date(),
+      createdBy: MOCK_AUTH_CONTEXT.userId,
+      updatedAt: new Date(),
+      updatedBy: MOCK_AUTH_CONTEXT.userId,
+    };
+
+    if (!user) {
+      const updated = [driverEntity, ...localDrivers];
+      setLocalDrivers(updated);
+      setCreateModal({ isOpen: false, entityType: 'DRIVER' });
+      setNewDriver({ driverId: '', name: '', phone: '0501234567', idNumber: '1087654321', carrierId: '' });
+      setOverview(buildDefaultOverview(selectedProjectId, localCarriers, localMaterials, localTrucks, updated));
+      setActionNotice({ type: 'success', message: 'تم تسجيل السائق وربطه بالناقل (Driver → Carrier) محلياً.' });
+      return;
+    }
+
     try {
-      await driverRepository.create({
-        driverId: newDriver.driverId.trim().toUpperCase(),
-        projectId: selectedProjectId,
-        carrierId: newDriver.carrierId,
-        name: newDriver.name.trim(),
-        normalizedName: normalizeName(newDriver.name.trim()),
-        fullNameAr: newDriver.name.trim(),
-        phone: normalizePhone(newDriver.phone),
-        idNumber: normalizeIdNumber(newDriver.idNumber),
-        nationalOrIqamaId: normalizeIdNumber(newDriver.idNumber),
-        status: 'ACTIVE',
-        isActive: true,
-        createdBy: MOCK_AUTH_CONTEXT.userId,
-        updatedBy: MOCK_AUTH_CONTEXT.userId,
-      });
+      await driverRepository.create(driverEntity);
       setCreateModal({ isOpen: false, entityType: 'DRIVER' });
       setNewDriver({ driverId: '', name: '', phone: '0501234567', idNumber: '1087654321', carrierId: '' });
       setActionNotice({ type: 'success', message: 'تم تسجيل السائق وربطه بالناقل (Driver → Carrier) مع تطبيع الهوية والجوال.' });
@@ -647,6 +616,28 @@ export const MasterDataView: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {!user && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-950">
+          <div className="flex items-start sm:items-center gap-3">
+            <span className="p-2 rounded-lg bg-amber-500/20 text-amber-800 shrink-0">
+              <Info className="w-5 h-5" />
+            </span>
+            <div>
+              <p className="text-sm font-bold">وضع الاستعراض والتجربة (Preview Mode)</p>
+              <p className="text-xs text-amber-900/80">
+                يعمل التطبيق حالياً بالبيانات المرجعية الكاملة للمشاريع السعودية. لتفعيل المزامنة المباشرة لقواعد بيانات Firestore وتخزين التعديلات سحابياً، يمكنك تسجيل الدخول بحساب Google.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={signInWithGoogle}
+            className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold transition-colors shrink-0 shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span>تسجيل الدخول عبر Google</span>
+          </button>
+        </div>
+      )}
+
       {/* Top Banner & Project Scope Selector */}
       <div className="bg-white border border-stone-200/80 rounded-xl p-5 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">

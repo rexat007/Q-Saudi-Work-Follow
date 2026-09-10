@@ -21,7 +21,9 @@ import {
   BookOpen,
   Boxes,
   Share2,
-  Lock
+  Lock,
+  ShieldAlert,
+  FileSpreadsheet
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { ENTITY_RELATIONS, MANDATORY_PRINCIPLES, EntityRelationInfo } from './entityRelations';
@@ -30,9 +32,13 @@ import FirestoreArchitectureView from './components/FirestoreArchitectureView';
 import { ProjectSetupWizard } from './components/wizard/ProjectSetupWizard';
 import { PricingEngineView } from './components/pricing/PricingEngineView';
 import { MasterDataView } from './components/masterData/MasterDataView';
+import { DataQualityView } from './components/dataQuality/DataQualityView';
+import { ImportCenterView } from './components/importCenter/ImportCenterView';
+import { TripEngineView } from './components/TripEngineView';
+import { AuthButton } from './components/auth/AuthButton';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'MASTER_DATA' | 'PRICING_ENGINE' | 'WIZARD' | 'FIRESTORE_ARCH' | 'RELATIONS' | 'PRINCIPLES' | 'DOCS'>('MASTER_DATA');
+  const [activeTab, setActiveTab] = useState<'TRIP_ENGINE' | 'IMPORT_CENTER' | 'DATA_QUALITY' | 'MASTER_DATA' | 'PRICING_ENGINE' | 'WIZARD' | 'FIRESTORE_ARCH' | 'RELATIONS' | 'PRINCIPLES' | 'DOCS'>('TRIP_ENGINE');
   const [selectedEntityId, setSelectedEntityId] = useState<string>('Trip');
   const [selectedDocId, setSelectedDocId] = useState<string>('architecture');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -97,120 +103,193 @@ export default function App() {
             </div>
           </div>
 
-          {/* Navigation Mode Switcher */}
-          <nav className="flex items-center bg-stone-100 p-1 rounded-xl border border-stone-200/80 gap-1 overflow-x-auto">
-            <button
-              id="tab-master-data"
-              onClick={() => setActiveTab('MASTER_DATA')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
-                activeTab === 'MASTER_DATA' 
-                  ? 'bg-amber-600 text-white shadow-xs' 
-                  : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/50'
-              }`}
-            >
-              <Boxes className="w-3.5 h-3.5" />
-              <span>البيانات الرئيسية (Master Data)</span>
-              <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
-                activeTab === 'MASTER_DATA' ? 'bg-white/20 text-white' : 'bg-amber-200 text-amber-900'
-              }`}>
-                4 وحدات
-              </span>
-            </button>
+          {/* Navigation Mode Switcher & Auth Button */}
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <nav className="flex items-center bg-stone-100 p-1 rounded-xl border border-stone-200/80 gap-1 overflow-x-auto">
+              <button
+                id="tab-trip-engine"
+                onClick={() => setActiveTab('TRIP_ENGINE')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  activeTab === 'TRIP_ENGINE' 
+                    ? 'bg-amber-600 text-white shadow-xs' 
+                    : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/50'
+                }`}
+              >
+                <Truck className="w-3.5 h-3.5" />
+                <span>محرك الرحلات (Trip Engine)</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                  activeTab === 'TRIP_ENGINE' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
+                }`}>
+                  6 قواعد
+                </span>
+              </button>
 
-            <button
-              id="tab-pricing-engine"
-              onClick={() => setActiveTab('PRICING_ENGINE')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
-                activeTab === 'PRICING_ENGINE' 
-                  ? 'bg-amber-600 text-white shadow-xs' 
-                  : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/50'
-              }`}
-            >
-              <Calculator className="w-3.5 h-3.5" />
-              <span>محرك التسعير (Pricing Engine)</span>
-              <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
-                activeTab === 'PRICING_ENGINE' ? 'bg-white/20 text-white' : 'bg-emerald-200 text-emerald-900'
-              }`}>
-                9 اختبارات
-              </span>
-            </button>
+              <button
+                id="tab-import-center"
+                onClick={() => setActiveTab('IMPORT_CENTER')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  activeTab === 'IMPORT_CENTER' 
+                    ? 'bg-amber-600 text-white shadow-xs' 
+                    : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/50'
+                }`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>مركز الاستيراد (Import Center)</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                  activeTab === 'IMPORT_CENTER' ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-800'
+                }`}>
+                  12 مرحلة
+                </span>
+              </button>
 
-            <button
-              id="tab-wizard"
-              onClick={() => setActiveTab('WIZARD')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
-                activeTab === 'WIZARD' 
-                  ? 'bg-amber-600 text-white shadow-xs' 
-                  : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/50'
-              }`}
-            >
-              <Building2 className="w-3.5 h-3.5" />
-              <span>معالج تهيئة المشاريع (Project Wizard)</span>
-              <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
-                activeTab === 'WIZARD' ? 'bg-white/20 text-white' : 'bg-amber-200 text-amber-900'
-              }`}>
-                7 خطوات
-              </span>
-            </button>
+              <button
+                id="tab-data-quality"
+                onClick={() => setActiveTab('DATA_QUALITY')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  activeTab === 'DATA_QUALITY' 
+                    ? 'bg-amber-600 text-white shadow-xs' 
+                    : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/50'
+                }`}
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>محرك جودة البيانات (Quality Engine)</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                  activeTab === 'DATA_QUALITY' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
+                }`}>
+                  8 مراحل
+                </span>
+              </button>
 
-            <button
-              id="tab-firestore"
-              onClick={() => setActiveTab('FIRESTORE_ARCH')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
-                activeTab === 'FIRESTORE_ARCH' 
-                  ? 'bg-white text-stone-900 shadow-xs border border-stone-200/50' 
-                  : 'text-stone-600 hover:text-stone-900'
-              }`}
-            >
-              <Database className="w-3.5 h-3.5 text-amber-600" />
-              <span>معمارية Firestore (الـ 13 نطاقاً)</span>
-            </button>
+              <button
+                id="tab-master-data"
+                onClick={() => setActiveTab('MASTER_DATA')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  activeTab === 'MASTER_DATA' 
+                    ? 'bg-amber-600 text-white shadow-xs' 
+                    : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/50'
+                }`}
+              >
+                <Boxes className="w-3.5 h-3.5" />
+                <span>البيانات الرئيسية (Master Data)</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                  activeTab === 'MASTER_DATA' ? 'bg-white/20 text-white' : 'bg-amber-200 text-amber-900'
+                }`}>
+                  4 وحدات
+                </span>
+              </button>
 
-            <button
-              id="tab-relations"
-              onClick={() => setActiveTab('RELATIONS')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
-                activeTab === 'RELATIONS' 
-                  ? 'bg-white text-stone-900 shadow-xs border border-stone-200/50' 
-                  : 'text-stone-600 hover:text-stone-900'
-              }`}
-            >
-              <Share2 className="w-3.5 h-3.5 text-indigo-600" />
-              <span>شبكة العلاقات (11 كياناً)</span>
-            </button>
+              <button
+                id="tab-pricing-engine"
+                onClick={() => setActiveTab('PRICING_ENGINE')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  activeTab === 'PRICING_ENGINE' 
+                    ? 'bg-amber-600 text-white shadow-xs' 
+                    : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/50'
+                }`}
+              >
+                <Calculator className="w-3.5 h-3.5" />
+                <span>محرك التسعير (Pricing Engine)</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                  activeTab === 'PRICING_ENGINE' ? 'bg-white/20 text-white' : 'bg-emerald-200 text-emerald-900'
+                }`}>
+                  9 اختبارات
+                </span>
+              </button>
 
-            <button
-              id="tab-principles"
-              onClick={() => setActiveTab('PRINCIPLES')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
-                activeTab === 'PRINCIPLES' 
-                  ? 'bg-white text-stone-900 shadow-xs border border-stone-200/50' 
-                  : 'text-stone-600 hover:text-stone-900'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>المبادئ الـ 12 الإلزامية</span>
-            </button>
+              <button
+                id="tab-wizard"
+                onClick={() => setActiveTab('WIZARD')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  activeTab === 'WIZARD' 
+                    ? 'bg-amber-600 text-white shadow-xs' 
+                    : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/50'
+                }`}
+              >
+                <Building2 className="w-3.5 h-3.5" />
+                <span>معالج تهيئة المشاريع (Project Wizard)</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                  activeTab === 'WIZARD' ? 'bg-white/20 text-white' : 'bg-amber-200 text-amber-900'
+                }`}>
+                  7 خطوات
+                </span>
+              </button>
 
-            <button
-              id="tab-docs"
-              onClick={() => setActiveTab('DOCS')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
-                activeTab === 'DOCS' 
-                  ? 'bg-white text-stone-900 shadow-xs border border-stone-200/50' 
-                  : 'text-stone-600 hover:text-stone-900'
-              }`}
-            >
-              <BookOpen className="w-3.5 h-3.5 text-amber-600" />
-              <span>المستندات المعمارية (7 ملفات)</span>
-            </button>
-          </nav>
+              <button
+                id="tab-firestore"
+                onClick={() => setActiveTab('FIRESTORE_ARCH')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  activeTab === 'FIRESTORE_ARCH' 
+                    ? 'bg-white text-stone-900 shadow-xs border border-stone-200/50' 
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <Database className="w-3.5 h-3.5 text-amber-600" />
+                <span>معمارية Firestore (الـ 13 نطاقاً)</span>
+              </button>
+
+              <button
+                id="tab-relations"
+                onClick={() => setActiveTab('RELATIONS')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  activeTab === 'RELATIONS' 
+                    ? 'bg-white text-stone-900 shadow-xs border border-stone-200/50' 
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <Share2 className="w-3.5 h-3.5 text-indigo-600" />
+                <span>شبكة العلاقات (11 كياناً)</span>
+              </button>
+
+              <button
+                id="tab-principles"
+                onClick={() => setActiveTab('PRINCIPLES')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  activeTab === 'PRINCIPLES' 
+                    ? 'bg-white text-stone-900 shadow-xs border border-stone-200/50' 
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>المبادئ الـ 12 الإلزامية</span>
+              </button>
+
+              <button
+                id="tab-docs"
+                onClick={() => setActiveTab('DOCS')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  activeTab === 'DOCS' 
+                    ? 'bg-white text-stone-900 shadow-xs border border-stone-200/50' 
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5 text-amber-600" />
+                <span>المستندات المعمارية (7 ملفات)</span>
+              </button>
+            </nav>
+
+            <AuthButton />
+          </div>
         </div>
       </header>
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
+        {/* ================= TAB: TRIP ENGINE (6 RULES & SERVER SETTLEMENT) ================= */}
+        {activeTab === 'TRIP_ENGINE' && (
+          <TripEngineView />
+        )}
+
+        {/* ================= TAB: IMPORT CENTER (12-STAGE PIPELINE) ================= */}
+        {activeTab === 'IMPORT_CENTER' && (
+          <ImportCenterView />
+        )}
+
+        {/* ================= TAB: DATA QUALITY ENGINE (8-STAGE PIPELINE) ================= */}
+        {activeTab === 'DATA_QUALITY' && (
+          <DataQualityView />
+        )}
+
         {/* ================= TAB: MASTER DATA MODULES ================= */}
         {activeTab === 'MASTER_DATA' && (
           <MasterDataView />
