@@ -1,0 +1,2 @@
+import { LoadingTranslations } from '../types';
+export const loading: LoadingTranslations = {loadingStation:'لوڈنگ اسٹیشن',originScale:'ابتدائی ترازو',grossWeightCapture:'کل وزن اندراج',tareWeightCapture:'خالی وزن اندراج',netWeightCalc:'خالص وزن حساب',loaderOperator:'لوڈر آپریٹر',scaleTicketNumber:'ترازو ٹکٹ نمبر',loadingTime:'لوڈنگ کا وقت',loadingApproval:'لوڈنگ منظوری',sealNumber:'سیل نمبر',waybillGenerated:'وے بل تیار',readyForTransit:'ٹرانزٹ کے لیے تیار',tareOverTolerance:'خالی وزن حد سے زیادہ',loadingNotes:'لوڈنگ نوٹس',confirmLoading:'لوڈنگ کی تصدیق'};

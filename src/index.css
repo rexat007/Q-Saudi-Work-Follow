@@ -1,1 +1,16 @@
 @import "tailwindcss";
+
+html[dir="rtl"] { direction: rtl; }
+html[dir="ltr"] { direction: ltr; }
+
+input[type="number"], input[inputmode="numeric"], input[inputmode="decimal"] { direction: ltr; text-align: start; unicode-bidi: plaintext; }
+
+[dir="rtl"] table, [dir="rtl"] [role="grid"] { direction: rtl; }
+[dir="ltr"] table, [dir="ltr"] [role="grid"] { direction: ltr; }
+
+@media print {
+  html, body, #root { direction: inherit !important; }
+  .print\:hidden { display: none !important; }
+  table, [role="grid"] { break-inside: auto; }
+  tr { break-inside: avoid; }
+}

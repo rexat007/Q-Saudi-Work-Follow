@@ -1,0 +1,2 @@
+import { AuditTranslations } from '../types';
+export const audit: AuditTranslations = {auditLog:'Audit Log',securityAudit:'Security Audit',entityType:'Entity Type',actionType:'Action Type',beforeState:'Before State',afterState:'After State',performedBy:'Performed By',ipAddress:'IP Address',timestamp:'Timestamp',changeSummary:'Change Summary',nonRepudiation:'Non-Repudiation',tamperEvident:'Tamper Evident',verifySignatures:'Verify Signatures',exportAuditTrail:'Export Audit Trail',auditDomains:'Audit Domains',passedCount:'Passed',failedCount:'Failed'};

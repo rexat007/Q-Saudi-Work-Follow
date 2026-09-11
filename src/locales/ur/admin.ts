@@ -1,0 +1,2 @@
+import { AdminTranslations } from '../types';
+export const admin: AdminTranslations = {adminConsole:'ایڈمن کنسول',systemHealth:'سسٹم کی صحت',securitySettings:'سیکیورٹی ترتیبات',roleManagement:'کرداروں کا انتظام',projectAssignment:'پروجیکٹ تفویض',auditLogs:'آڈٹ لاگز',databaseSync:'ڈیٹابیس مطابقت',masterDataControls:'ماسٹر ڈیٹا کنٹرولز',platformRules:'پلیٹ فارم قواعد',cloudServices:'کلاؤڈ سروسز',productionReadiness:'پروڈکشن تیاری',diagnostics:'تشخیص',runIntegrityCheck:'انٹیگریٹی چیک چلائیں',clearCache:'کیش صاف کریں',securityAudit:'سیکیورٹی آڈٹ',runAuditSuite:'آڈٹ سوٹ چلائیں'};

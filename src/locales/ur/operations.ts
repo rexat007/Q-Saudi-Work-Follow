@@ -1,0 +1,2 @@
+import { OperationsTranslations } from '../types';
+export const operations: OperationsTranslations = {operationalCenter:'آپریشنز مرکز',dispatchControl:'ڈسپیچ کنٹرول',liveTrips:'لائیو سفر',weightStations:'وزن اسٹیشنز',scaleStatus:'ترازو کی حالت',gatePass:'گیٹ پاس',tareScale:'خالی وزن',grossScale:'کل وزن',shift:'شفٹ',dayShift:'دن کی شفٹ',nightShift:'رات کی شفٹ',supervisorOnDuty:'ڈیوٹی سپروائزر',dispatchTrip:'سفر روانہ کریں',manualEntry:'دستی اندراج',autoCapture:'خودکار گرفت',varianceTolerated:'قابل قبول فرق',varianceAlert:'فرق کی تنبیہ',quickDispatch:'فوری ڈسپیچ'};
