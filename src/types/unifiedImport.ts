@@ -83,6 +83,9 @@ export interface ImportIssue {
   blocking: boolean;
   suggestedValue?: any;
   originalValue?: any;
+  actualNetWeight?: number;
+  calculatedNetWeight?: number;
+  difference?: number;
 }
 
 /**

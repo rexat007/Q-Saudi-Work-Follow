@@ -569,6 +569,149 @@ export async function runExcelCsvImportTests(): Promise<{
     });
   }
 
+  // -------------------------------------------------------------
+  // TEST CASE 11: Net Weight Safety & Calculation Verification
+  // -------------------------------------------------------------
+  {
+    const validator = new ExcelCsvTripValidator();
+    const context: PipelineContext = {
+      projectId: 'proj_riyadh_metro',
+      userId: 'usr_test',
+      operationId: 'op_test_net_safety',
+    };
+
+    // Sub-case 1: net == gross - tare => NO warning
+    const matchingRow: any = {
+      rowNumber: 1,
+      sourceRowId: 1,
+      raw: { ticket: 'TKT-MATCH', gross: 42000, tare: 15000, net: 27000 },
+      mapped: {
+        ticketId: 'TKT-MATCH',
+        truckNo: 'TRK-1111',
+        grossWeight: 42000,
+        tareWeight: 15000,
+        netWeight: 27000,
+        shiftDate: '2026-09-11',
+      },
+    };
+    const issuesMatch = validator.validateRow(matchingRow, context);
+    const hasMismatchIssue1 = issuesMatch.some((i) => i.code === 'NET_WEIGHT_CALCULATION_MISMATCH');
+
+    // Sub-case 2: net differs => WARNING with metadata (actual, calculated, diff)
+    const differingRow: any = {
+      rowNumber: 2,
+      sourceRowId: 2,
+      raw: { ticket: 'TKT-DIFF', gross: 42000, tare: 15000, net: 26500 },
+      mapped: {
+        ticketId: 'TKT-DIFF',
+        truckNo: 'TRK-2222',
+        grossWeight: 42000,
+        tareWeight: 15000,
+        netWeight: 26500, // 500 kg difference from 27000
+        shiftDate: '2026-09-11',
+      },
+    };
+    const issuesDiff = validator.validateRow(differingRow, context);
+    const diffIssue = issuesDiff.find((i) => i.code === 'NET_WEIGHT_CALCULATION_MISMATCH');
+    const diffPassed =
+      diffIssue !== undefined &&
+      diffIssue.field === 'netWeight' &&
+      diffIssue.severity === 'WARNING' &&
+      diffIssue.blocking === false &&
+      diffIssue.actualNetWeight === 26500 &&
+      diffIssue.calculatedNetWeight === 27000 &&
+      diffIssue.difference === 500;
+
+    // Sub-case 3: Floating point tolerance (within 0.05 kg) => NO warning
+    const floatRow: any = {
+      rowNumber: 3,
+      sourceRowId: 3,
+      raw: { ticket: 'TKT-FLOAT', gross: 42000.08, tare: 15000.05, net: 27000.05 },
+      mapped: {
+        ticketId: 'TKT-FLOAT',
+        truckNo: 'TRK-3333',
+        grossWeight: 42000.08,
+        tareWeight: 15000.05,
+        netWeight: 27000.05, // difference is 0.02 <= 0.05 kg tolerance
+        shiftDate: '2026-09-11',
+      },
+    };
+    const issuesFloat = validator.validateRow(floatRow, context);
+    const hasMismatchIssueFloat = issuesFloat.some((i) => i.code === 'NET_WEIGHT_CALCULATION_MISMATCH');
+
+    // Sub-case 4: Missing net => calculate net only when missing; preserve existing net
+    const normalizer = new ExcelCsvNormalizer();
+    const missingNetNorm = normalizer.normalize(
+      { ticket: 'TKT-MISSING-NET', gross: 35000, tare: 12000 },
+      4,
+      context
+    );
+    const providedNetNorm = normalizer.normalize(
+      { ticket: 'TKT-PRESERVED-NET', gross: 35000, tare: 12000, net: 22800 },
+      5,
+      context
+    );
+    const calcOnlyWhenMissing =
+      missingNetNorm.netWeight === 23000 &&
+      providedNetNorm.netWeight === 22800; // Original net 22800 was NOT replaced!
+
+    // Sub-case 5: Raw net preserved in raw input
+    const rawNetPreserved = differingRow.raw.net === 26500;
+
+    // Sub-case 6: Null unloading remains valid (weighbridge compatible, no fake variance)
+    const weighbridgeRow: any = {
+      rowNumber: 6,
+      sourceRowId: 6,
+      raw: { ticket: 'TKT-WB', gross: 40000, tare: 14000, net: 26000 },
+      mapped: {
+        ticketId: 'TKT-WB',
+        truckNo: 'TRK-4444',
+        grossWeight: 40000,
+        tareWeight: 14000,
+        netWeight: 26000,
+        shiftDate: '2026-09-11',
+        destNetWeight: undefined,
+      },
+    };
+    const issuesWb = validator.validateRow(weighbridgeRow, context);
+    const hasBlockingInWb = issuesWb.some((i) => i.blocking);
+    const hasUnloadWarning = issuesWb.some(
+      (i) => i.code === 'MISSING_UNLOAD_DATA' && i.severity === 'WARNING' && !i.blocking
+    );
+    const nullUnloadValid = !hasBlockingInWb && hasUnloadWarning;
+
+    const allConditionsPassed =
+      !hasMismatchIssue1 &&
+      diffPassed &&
+      !hasMismatchIssueFloat &&
+      calcOnlyWhenMissing &&
+      rawNetPreserved &&
+      nullUnloadValid;
+
+    results.push({
+      id: 'TC-11-NET-WEIGHT-SAFETY-AND-CALCULATION-CHECK',
+      name: 'التحقق من سلامة الوزن الصافي: مطابقة الحساب، إطلاق تحذير غير مانع عند الاختلاف، والتوافق مع الميزان',
+      passed: allConditionsPassed,
+      expected: {
+        matchingHasNoWarning: true,
+        diffTriggersWarning: true,
+        toleranceHonored: true,
+        calcOnlyWhenMissing: true,
+        rawPreserved: true,
+        nullUnloadValid: true,
+      },
+      actual: {
+        matchingHasNoWarning: !hasMismatchIssue1,
+        diffTriggersWarning: diffPassed,
+        toleranceHonored: !hasMismatchIssueFloat,
+        calcOnlyWhenMissing,
+        rawPreserved: rawNetPreserved,
+        nullUnloadValid,
+      },
+      notes: 'تحقق شامل لسلامة الوزن الصافي وعدم الاستبدال الصامت وتوثيق الفارق بدقة',
+    });
+  }
+
   const passedCount = results.filter((r) => r.passed).length;
   const failedCount = results.length - passedCount;
 

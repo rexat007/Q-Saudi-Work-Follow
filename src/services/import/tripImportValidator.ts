@@ -21,6 +21,12 @@ import { IImportValidator } from './contracts';
 import { ImportRow, ImportIssue, PipelineContext } from '../../types/unifiedImport';
 import { CanonicalTripRow } from '../../types/excelCsvImport';
 
+/**
+ * Tolerance for net weight calculation discrepancy (kg).
+ * Accounts for standard decimal precision and floating-point representations.
+ */
+export const NET_WEIGHT_CALCULATION_TOLERANCE_KG = 0.05;
+
 export class ExcelCsvTripValidator implements IImportValidator<CanonicalTripRow> {
   public validateRow(row: ImportRow<any, CanonicalTripRow>, context: PipelineContext): ImportIssue[] {
     const issues: ImportIssue[] = [];
@@ -162,6 +168,44 @@ export class ExcelCsvTripValidator implements IImportValidator<CanonicalTripRow>
           resolvable: true,
           blocking: true,
           originalValue: { gross, tare },
+        });
+      }
+    }
+
+    // Check Net Weight Calculation Consistency: net vs (gross - tare)
+    // Non-blocking WARNING if gross, tare, and net are all present, valid numbers, gross >= tare, but net differs beyond tolerance
+    if (
+      typeof gross === 'number' &&
+      typeof tare === 'number' &&
+      typeof net === 'number' &&
+      !isNaN(gross) &&
+      !isNaN(tare) &&
+      !isNaN(net) &&
+      gross >= tare
+    ) {
+      const calculatedNet = Math.round((gross - tare) * 100) / 100;
+      const actualNet = Math.round(net * 100) / 100;
+      const difference = Math.round(Math.abs(actualNet - calculatedNet) * 100) / 100;
+
+      if (difference > NET_WEIGHT_CALCULATION_TOLERANCE_KG) {
+        issues.push({
+          issueId: `WRN-NET-MISMATCH-${rowNum}`,
+          row: rowNum,
+          field: 'netWeight',
+          code: 'NET_WEIGHT_CALCULATION_MISMATCH',
+          severity: 'WARNING',
+          blocking: false,
+          resolvable: true,
+          actualNetWeight: net,
+          calculatedNetWeight: calculatedNet,
+          difference,
+          message: `Imported net weight (${net} kg) does not match calculated weight (gross ${gross} - tare ${tare} = ${calculatedNet} kg). Difference: ${difference} kg.`,
+          messageAr: `الوزن الصافي المسجل في التذكرة (${net} كجم) يختلف عن الصافي المحسوب (القائم ${gross} - الفارغ ${tare} = ${calculatedNet} كجم) بفارق ${difference} كجم.`,
+          originalValue: {
+            actualNetWeight: net,
+            calculatedNetWeight: calculatedNet,
+            difference,
+          },
         });
       }
     }
