@@ -10,7 +10,6 @@ import { driverRepository } from '../repositories/driver.repository';
 import { materialRepository } from '../repositories/material.repository';
 import { pricingRuleRepository } from '../repositories/pricingRule.repository';
 import { projectRepository } from '../repositories/project.repository';
-import { auth } from '../firebase/config';
 
 export interface DispatchTripParams {
   projectId: string;
@@ -387,12 +386,10 @@ export class TripService {
     }
 
     let existing: TripEntity | null = null;
-    if (auth.currentUser) {
-      try {
-        existing = await tripRepository.findById(projectId, tripId);
-      } catch {
-        existing = null;
-      }
+    try {
+      existing = await tripRepository.findById(projectId, tripId);
+    } catch {
+      existing = null;
     }
 
     if (!existing) {
@@ -423,19 +420,16 @@ export class TripService {
       throw new Error(`خطأ في بيانات الرحلة: ${validation.errors.map(e => e.messageAr).join(' | ')}`);
     }
 
-    if (auth.currentUser) {
-      try {
-        await tripRepository.update(projectId, tripId, updates, context.userId);
-        await auditLogService.recordLog({
-          projectId,
-          entityType: 'TRIP',
-          entityId: tripId,
-          action: 'UPDATE',
-          before: existing,
-          after: merged,
-        }, context);
-      } catch {}
-    }
+    await tripRepository.update(projectId, tripId, updates, context.userId);
+
+    await auditLogService.recordLog({
+      projectId,
+      entityType: 'TRIP',
+      entityId: tripId,
+      action: 'UPDATE',
+      before: existing,
+      after: merged,
+    }, context);
 
     return merged;
   }

@@ -25,7 +25,6 @@ import { pricingRuleRepository } from '../repositories/pricingRule.repository';
 import { tripRepository } from '../repositories/trip.repository';
 import { AuthUserContext } from '../types/common';
 import { TripEntity } from '../types/entities';
-import { auth } from '../firebase/config';
 
 export interface SecurityTestCaseResult {
   id: string;
@@ -81,7 +80,84 @@ export async function runSecurityAuditTests(): Promise<SecurityAuditReport> {
   const TRUCK_A = `TRK-AUDIT-A`;
   const TRUCK_B = `TRK-AUDIT-B`;
 
-  // Baseline Trip definition for test assertions
+  try {
+    await projectRepository.create({
+      projectId: PROJECT_A,
+      projectCode: 'NEOM-01',
+      nameAr: 'مشروع نيوم الشمالي',
+      nameEn: 'Neom North Project',
+      status: 'ACTIVE',
+      contractNumber: 'NEOM-CNT-2026',
+      clientNameAr: 'شركة نيوم اللوجستية',
+      clientNameEn: 'NEOM Logistics',
+      startDate: new Date(),
+    } as any);
+  } catch {}
+
+  try {
+    await carrierRepository.create({
+      carrierId: CARRIER_A,
+      projectId: PROJECT_A,
+      name: 'المجدوعي للوجستيات',
+      normalizedName: 'المجدوعي للوجستيات',
+      status: 'ACTIVE',
+      isActive: true,
+    } as any);
+
+    await carrierRepository.create({
+      carrierId: CARRIER_B,
+      projectId: PROJECT_A,
+      name: 'بن لادن للنقليات',
+      normalizedName: 'بن لادن للنقليات',
+      status: 'ACTIVE',
+      isActive: true,
+    } as any);
+  } catch {}
+
+  try {
+    await truckRepository.create({
+      truckId: TRUCK_A,
+      projectId: PROJECT_A,
+      carrierId: CARRIER_A,
+      plate: 'أ ب ج 9901',
+      normalizedPlate: 'ا ب ج 9901',
+      status: 'ACTIVE',
+      isActive: true,
+      tareWeightKg: 14000,
+      maxGrossWeightKg: 45000,
+      legalPayloadLimitKg: 31000,
+    } as any);
+
+    await truckRepository.create({
+      truckId: TRUCK_B,
+      projectId: PROJECT_A,
+      carrierId: CARRIER_B,
+      plate: 'س ع د 8802',
+      normalizedPlate: 'س ع د 8802',
+      status: 'ACTIVE',
+      isActive: true,
+      tareWeightKg: 14000,
+      maxGrossWeightKg: 45000,
+      legalPayloadLimitKg: 31000,
+    } as any);
+  } catch {}
+
+  try {
+    await pricingRuleRepository.create({
+      pricingRuleId: TEST_RULE_ID,
+      projectId: PROJECT_A,
+      carrierId: CARRIER_A,
+      baseRateSAR: 75,
+      version: 1,
+      status: 'ACTIVE',
+      isActive: true,
+      effectiveFrom: new Date(),
+      effectiveTo: new Date(Date.now() + 86400000 * 30),
+      pricingType: 'PER_TON',
+    } as any);
+  } catch {}
+
+  // Create baseline Trip for testing
   const baselineTrip: any = {
     tripId: TEST_TRIP_ID,
     tripNumber: 'TRP-AUD-001',
@@ -120,89 +196,9 @@ export async function runSecurityAuditTests(): Promise<SecurityAuditReport> {
     updatedBy: adminContext.userId,
   };
 
-  // Only bootstrap live database fixtures if an authenticated Firebase session exists
-  if (auth.currentUser) {
-    try {
-      await projectRepository.create({
-        projectId: PROJECT_A,
-        projectCode: 'NEOM-01',
-        nameAr: 'مشروع نيوم الشمالي',
-        nameEn: 'Neom North Project',
-        status: 'ACTIVE',
-        contractNumber: 'NEOM-CNT-2026',
-        clientNameAr: 'شركة نيوم اللوجستية',
-        clientNameEn: 'NEOM Logistics',
-        startDate: new Date(),
-      } as any);
-    } catch {}
-
-    try {
-      await carrierRepository.create({
-        carrierId: CARRIER_A,
-        projectId: PROJECT_A,
-        name: 'المجدوعي للوجستيات',
-        normalizedName: 'المجدوعي للوجستيات',
-        status: 'ACTIVE',
-        isActive: true,
-      } as any);
-
-      await carrierRepository.create({
-        carrierId: CARRIER_B,
-        projectId: PROJECT_A,
-        name: 'بن لادن للنقليات',
-        normalizedName: 'بن لادن للنقليات',
-        status: 'ACTIVE',
-        isActive: true,
-      } as any);
-    } catch {}
-
-    try {
-      await truckRepository.create({
-        truckId: TRUCK_A,
-        projectId: PROJECT_A,
-        carrierId: CARRIER_A,
-        plate: 'أ ب ج 9901',
-        normalizedPlate: 'ا ب ج 9901',
-        status: 'ACTIVE',
-        isActive: true,
-        tareWeightKg: 14000,
-        maxGrossWeightKg: 45000,
-        legalPayloadLimitKg: 31000,
-      } as any);
-
-      await truckRepository.create({
-        truckId: TRUCK_B,
-        projectId: PROJECT_A,
-        carrierId: CARRIER_B,
-        plate: 'س ع د 8802',
-        normalizedPlate: 'س ع د 8802',
-        status: 'ACTIVE',
-        isActive: true,
-        tareWeightKg: 14000,
-        maxGrossWeightKg: 45000,
-        legalPayloadLimitKg: 31000,
-      } as any);
-    } catch {}
-
-    try {
-      await pricingRuleRepository.create({
-        pricingRuleId: TEST_RULE_ID,
-        projectId: PROJECT_A,
-        carrierId: CARRIER_A,
-        baseRateSAR: 75,
-        version: 1,
-        status: 'ACTIVE',
-        isActive: true,
-        effectiveFrom: new Date(),
-        effectiveTo: new Date(Date.now() + 86400000 * 30),
-        pricingType: 'PER_TON',
-      } as any);
-    } catch {}
-
-    try {
-      await tripRepository.create(baselineTrip);
-    } catch {}
-  }
+  try {
+    await tripRepository.create(baselineTrip);
+  } catch {}
 
   // ==========================================================================
   // TEST CASE 1: Supervisor Attempts to Change carrierId

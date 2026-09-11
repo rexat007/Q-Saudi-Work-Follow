@@ -4,7 +4,6 @@ import { PricingRuleValidator } from '../validators/pricingRule.validator';
 import { PricingRuleEntity } from '../types/entities';
 import { AuthUserContext } from '../types/common';
 import { auditLogService } from './auditLog.service';
-import { auth } from '../firebase/config';
 
 export class PricingRuleService {
   async getPricingRules(projectId: string): Promise<PricingRuleEntity[]> {
@@ -58,12 +57,9 @@ export class PricingRuleService {
     }
 
     let existing: PricingRuleEntity | null = null;
-    if (auth.currentUser) {
-      try {
-        existing = await pricingRuleRepository.findById(projectId, pricingRuleId);
-      } catch {}
-    }
-    if (!existing) {
+    try {
+      existing = await pricingRuleRepository.findById(projectId, pricingRuleId);
+    } catch {
       existing = {
         pricingRuleId,
         projectId,
@@ -90,12 +86,12 @@ export class PricingRuleService {
     // Historical Protection & Immutability Check:
     // "عند تعديل Pricing Rule: لا تعدل Trips السابقة. أنشئ نسخة جديدة من Pricing Rule عند الحاجة بدلاً من mutation تؤثر على التاريخ."
     if (updates.baseRateSAR !== undefined && updates.baseRateSAR !== existing.baseRateSAR) {
-      let linkedTripsCount = 1;
-      if (auth.currentUser) {
-        try {
-          const allTrips = await tripRepository.listByProject(projectId, 500);
-          linkedTripsCount = allTrips.filter(t => t.pricingRuleId === pricingRuleId || t.pricingSnapshot?.pricingRuleId === pricingRuleId).length || 1;
-        } catch {}
+      let linkedTripsCount = 0;
+      try {
+        const allTrips = await tripRepository.listByProject(projectId, 500);
+        linkedTripsCount = allTrips.filter(t => t.pricingRuleId === pricingRuleId || t.pricingSnapshot?.pricingRuleId === pricingRuleId).length;
+      } catch {
+        linkedTripsCount = 1; // Default to historical protection
       }
 
       if (linkedTripsCount > 0) {
@@ -105,19 +101,20 @@ export class PricingRuleService {
       }
     }
 
-    if (auth.currentUser) {
-      try {
-        await pricingRuleRepository.update(projectId, pricingRuleId, updates, context.userId);
-        await auditLogService.recordLog({
-          projectId,
-          entityType: 'PRICING_RULE',
-          entityId: pricingRuleId,
-          action: 'UPDATE',
-          before: existing,
-          after: merged,
-        }, context);
-      } catch {}
-    }
+    try {
+      await pricingRuleRepository.update(projectId, pricingRuleId, updates, context.userId);
+    } catch {}
+
+    try {
+      await auditLogService.recordLog({
+        projectId,
+        entityType: 'PRICING_RULE',
+        entityId: pricingRuleId,
+        action: 'UPDATE',
+        before: existing,
+        after: merged,
+      }, context);
+    } catch {}
   }
 
   /**
@@ -134,12 +131,9 @@ export class PricingRuleService {
     context: AuthUserContext
   ): Promise<{ oldRule: PricingRuleEntity; newRule: PricingRuleEntity; protectedTripsCount: number }> {
     let existing: PricingRuleEntity | null = null;
-    if (auth.currentUser) {
-      try {
-        existing = await pricingRuleRepository.findById(projectId, existingRuleId);
-      } catch {}
-    }
-    if (!existing) {
+    try {
+      existing = await pricingRuleRepository.findById(projectId, existingRuleId);
+    } catch {
       existing = {
         pricingRuleId: existingRuleId,
         projectId,
@@ -158,20 +152,18 @@ export class PricingRuleService {
     }
 
     let linkedTripsCount = 1;
-    if (auth.currentUser) {
-      try {
-        const allTrips = await tripRepository.listByProject(projectId, 500);
-        linkedTripsCount = allTrips.filter(t => t.pricingRuleId === existingRuleId || t.pricingSnapshot?.pricingRuleId === existingRuleId).length || 1;
-      } catch {}
+    try {
+      const allTrips = await tripRepository.listByProject(projectId, 500);
+      linkedTripsCount = allTrips.filter(t => t.pricingRuleId === existingRuleId || t.pricingSnapshot?.pricingRuleId === existingRuleId).length || 1;
+    } catch {}
 
-      // Old rule stays untouched in terms of rates, but deactivated or expired for new trips
-      try {
-        await pricingRuleRepository.update(projectId, existingRuleId, {
-          status: 'INACTIVE',
-          isActive: false,
-        }, context.userId);
-      } catch {}
-    }
+    // Old rule stays untouched in terms of rates, but deactivated or expired for new trips
+    try {
+      await pricingRuleRepository.update(projectId, existingRuleId, {
+        status: 'INACTIVE',
+        isActive: false,
+      }, context.userId);
+    } catch {}
 
     const newRuleId = `${existingRuleId.replace(/-v\d+$/, '')}-v${Date.now().toString(36).slice(-4)}`;
 
@@ -187,19 +179,20 @@ export class PricingRuleService {
       updatedBy: context.userId,
     };
 
-    if (auth.currentUser) {
-      try {
-        await pricingRuleRepository.create(newRule);
-        await auditLogService.recordLog({
-          projectId,
-          entityType: 'PRICING_RULE',
-          entityId: newRuleId,
-          action: 'CREATE',
-          before: existing,
-          after: newRule,
-        }, context);
-      } catch {}
-    }
+    try {
+      await pricingRuleRepository.create(newRule);
+    } catch {}
+
+    try {
+      await auditLogService.recordLog({
+        projectId,
+        entityType: 'PRICING_RULE',
+        entityId: newRuleId,
+        action: 'CREATE',
+        before: existing,
+        after: newRule,
+      }, context);
+    } catch {}
 
     return {
       oldRule: { ...existing, status: 'INACTIVE', isActive: false },

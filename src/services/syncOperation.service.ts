@@ -2,7 +2,6 @@ import { syncOperationRepository } from '../repositories/syncOperation.repositor
 import { SyncOperationValidator } from '../validators/syncOperation.validator';
 import { SyncOperationEntity } from '../types/entities';
 import { AuthUserContext } from '../types/common';
-import { auth } from '../firebase/config';
 
 const localIdempotencyCache = new Map<string, SyncOperationEntity>();
 
@@ -19,20 +18,18 @@ export class SyncOperationService {
       };
     }
 
-    // Check repository only if authenticated with Firebase
-    if (auth.currentUser) {
-      try {
-        const existing = await syncOperationRepository.findById(payload.projectId, payload.operationId);
-        if (existing) {
-          localIdempotencyCache.set(payload.operationId, existing);
-          return {
-            isDuplicate: true,
-            operation: existing,
-          };
-        }
-      } catch {
-        // Offline / unit test fallback
+    // Check repository
+    try {
+      const existing = await syncOperationRepository.findById(payload.projectId, payload.operationId);
+      if (existing) {
+        localIdempotencyCache.set(payload.operationId, existing);
+        return {
+          isDuplicate: true,
+          operation: existing,
+        };
       }
+    } catch {
+      // Offline / unit test fallback
     }
 
     const newOp: Omit<SyncOperationEntity, 'createdAt' | 'updatedAt'> & { createdBy: string; updatedBy: string } = {
@@ -46,12 +43,10 @@ export class SyncOperationService {
       throw new Error(`خطأ في عملية المزامنة: ${validation.errors.map(e => e.messageAr).join(' | ')}`);
     }
 
-    if (auth.currentUser) {
-      try {
-        await syncOperationRepository.create(newOp);
-      } catch {
-        // Fallback
-      }
+    try {
+      await syncOperationRepository.create(newOp);
+    } catch {
+      // Fallback
     }
 
     localIdempotencyCache.set(payload.operationId, newOp as SyncOperationEntity);
