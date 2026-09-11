@@ -47,10 +47,11 @@ import { ExcelCsvImportSection } from './ExcelCsvImportSection';
 import { GoogleDriveImportSection } from './GoogleDriveImportSection';
 import { GoogleSheetsImportSection } from './GoogleSheetsImportSection';
 import { WeighbridgeImportSection } from './WeighbridgeImportSection';
+import { EntityResolutionSection } from './EntityResolutionSection';
 
 export function ImportCenterView() {
-  // Navigation between Weighbridge, Google Sheets, Google Drive, Excel/CSV, Unified Architecture, and Active Batch
-  const [centerSubTab, setCenterSubTab] = useState<'WEIGHBRIDGE_IMPORT' | 'GOOGLE_SHEETS_IMPORT' | 'GOOGLE_DRIVE_IMPORT' | 'EXCEL_CSV_IMPORT' | 'UNIFIED_ARCHITECTURE' | 'ACTIVE_BATCH'>('WEIGHBRIDGE_IMPORT');
+  // Navigation between Entity Resolution, Weighbridge, Google Sheets, Google Drive, Excel/CSV, Unified Architecture, and Active Batch
+  const [centerSubTab, setCenterSubTab] = useState<'ENTITY_RESOLUTION' | 'WEIGHBRIDGE_IMPORT' | 'GOOGLE_SHEETS_IMPORT' | 'GOOGLE_DRIVE_IMPORT' | 'EXCEL_CSV_IMPORT' | 'UNIFIED_ARCHITECTURE' | 'ACTIVE_BATCH'>('ENTITY_RESOLUTION');
 
   // Active batch state
   const [activeBatch, setActiveBatch] = useState<ImportBatch>(createInitialSampleBatch);
@@ -308,6 +309,18 @@ export function ImportCenterView() {
       {/* Sub-navigation tabs */}
       <div className="flex items-center gap-2 border-b border-stone-200/80 pb-3 flex-wrap">
         <button
+          onClick={() => setCenterSubTab('ENTITY_RESOLUTION')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            centerSubTab === 'ENTITY_RESOLUTION'
+              ? 'bg-stone-900 text-white shadow-xs'
+              : 'bg-white text-stone-600 hover:bg-stone-100 border border-stone-200'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+          <span>حل الكيانات وجودة البيانات (BLOCK 35 Resolution)</span>
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-indigo-600 text-white font-black">Entity Resolution</span>
+        </button>
+        <button
           onClick={() => setCenterSubTab('WEIGHBRIDGE_IMPORT')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
             centerSubTab === 'WEIGHBRIDGE_IMPORT'
@@ -378,7 +391,9 @@ export function ImportCenterView() {
         </button>
       </div>
 
-      {centerSubTab === 'WEIGHBRIDGE_IMPORT' ? (
+      {centerSubTab === 'ENTITY_RESOLUTION' ? (
+        <EntityResolutionSection />
+      ) : centerSubTab === 'WEIGHBRIDGE_IMPORT' ? (
         <WeighbridgeImportSection projectId="PRJ-NEOM-NORTH-01" />
       ) : centerSubTab === 'GOOGLE_SHEETS_IMPORT' ? (
         <GoogleSheetsImportSection projectId="PRJ-NEOM-NORTH-01" />

@@ -1,20 +1,24 @@
 /**
  * Excel & CSV Entity Resolver
- * BLOCK 31: Resolves Carrier, Truck, Driver, and Material against master data
+ * BLOCK 31 & BLOCK 35: Entity Resolution & Intelligent Data Quality
  * Strictly implements IImportEntityResolver from BLOCK 30
  * 
- * Rules:
- * - Exact match: confidence 1.0 -> matched
- * - Normalized match: confidence 0.90 -> matched
- * - Basic fuzzy/candidate generation: confidence 0.70-0.80 -> candidate
- * - Low confidence / not found: confidence 0 -> unknown
- * - No silent auto-merge when confidence is low
- * - Ambiguity -> requires_review
+ * Powered by EntityResolutionService:
+ * - Exact Match (1.0)
+ * - Normalized Match (0.92)
+ * - Approved Alias / Variant (0.94)
+ * - Fuzzy Candidate Generation (0.65-0.89)
+ * - Critical Relationship Validations (Truck ↔ Carrier, Driver ↔ Carrier, Material ↔ Project)
+ * - Truck without Carrier detection (TRUCK_MATCHED_CARRIER_UNKNOWN)
+ * - Strict Project Isolation (Server-side)
+ * - Composite Risk Scoring (LOW / MEDIUM / HIGH / CRITICAL)
+ * - No silent auto-merge
  */
 
 import { IImportEntityResolver } from './contracts';
-import { PipelineContext, ImportEntityResolutionInfo } from '../../types/unifiedImport';
+import { PipelineContext, ImportEntityResolutionInfo, EntityResolutionItem } from '../../types/unifiedImport';
 import { CanonicalTripRow } from '../../types/excelCsvImport';
+import { EntityResolutionService } from './entityResolution.service';
 
 export class ExcelCsvTripEntityResolver implements IImportEntityResolver<CanonicalTripRow> {
   public resolveEntities(
@@ -25,136 +29,40 @@ export class ExcelCsvTripEntityResolver implements IImportEntityResolver<Canonic
     const resolutions: Record<string, ImportEntityResolutionInfo> = {};
 
     // 1. Resolve Carrier
-    if (mapped.carrier) {
-      resolutions.carrier = this.resolveSingle(
-        'CARRIER',
-        String(mapped.carrier),
-        context.knownEntities?.carrierIds || []
-      );
+    let carrierRes: EntityResolutionItem | undefined;
+    if (mapped.carrier !== undefined && mapped.carrier !== null) {
+      carrierRes = EntityResolutionService.resolveCarrier(String(mapped.carrier), context);
+      resolutions.carrier = carrierRes;
     }
 
-    // 2. Resolve Truck
-    if (mapped.truckNo) {
-      resolutions.truck = this.resolveSingle(
-        'TRUCK',
+    // 2. Resolve Truck (with CRITICAL RELATIONSHIP VALIDATION against Carrier)
+    if (mapped.truckNo !== undefined && mapped.truckNo !== null) {
+      resolutions.truck = EntityResolutionService.resolveTruck(
         String(mapped.truckNo),
-        context.knownEntities?.truckPlates || []
+        context,
+        carrierRes,
+        mapped.carrier ? String(mapped.carrier) : undefined
       );
     }
 
-    // 3. Resolve Driver
-    if (mapped.driverName) {
-      resolutions.driver = this.resolveSingle(
-        'DRIVER',
+    // 3. Resolve Driver (with CRITICAL RELATIONSHIP VALIDATION against Carrier)
+    if (mapped.driverName !== undefined && mapped.driverName !== null) {
+      resolutions.driver = EntityResolutionService.resolveDriver(
         String(mapped.driverName),
-        context.knownEntities?.driverIds || []
+        context,
+        carrierRes,
+        mapped.carrier ? String(mapped.carrier) : undefined
       );
     }
 
-    // 4. Resolve Material
-    if (mapped.materialType) {
-      resolutions.material = this.resolveSingle(
-        'MATERIAL',
+    // 4. Resolve Material (with Material ↔ Project scope validation)
+    if (mapped.materialType !== undefined && mapped.materialType !== null) {
+      resolutions.material = EntityResolutionService.resolveMaterial(
         String(mapped.materialType),
-        context.knownEntities?.materialCodes || []
+        context
       );
     }
 
     return resolutions;
-  }
-
-  private resolveSingle(
-    entityType: ImportEntityResolutionInfo['entityType'],
-    rawVal: string,
-    knownList: string[]
-  ): ImportEntityResolutionInfo {
-    const cleanRaw = rawVal.trim();
-    if (!cleanRaw) {
-      return {
-        entityType,
-        originalValue: rawVal,
-        confidence: 0,
-        isExact: false,
-        isAuthorized: false,
-      };
-    }
-
-    // 1. Exact match
-    const exactMatch = knownList.find((k) => k === cleanRaw);
-    if (exactMatch) {
-      return {
-        entityType,
-        originalValue: rawVal,
-        matchedId: exactMatch,
-        matchedName: exactMatch,
-        confidence: 1.0,
-        isExact: true,
-        isAuthorized: true,
-      };
-    }
-
-    // 2. Normalized match (case-insensitive + Arabic normalized)
-    const normRaw = this.normalizeArabicForMatching(cleanRaw);
-    const normMatch = knownList.find((k) => this.normalizeArabicForMatching(k) === normRaw);
-    if (normMatch) {
-      return {
-        entityType,
-        originalValue: rawVal,
-        matchedId: normMatch,
-        matchedName: normMatch,
-        confidence: 0.92,
-        isExact: false,
-        isAuthorized: true,
-      };
-    }
-
-    // 3. Candidate / Substring Match (e.g. without "شركة" or "مؤسسة")
-    const strippedRaw = this.stripCompanyPrefixes(normRaw);
-    const candidate = knownList.find((k) => {
-      const strippedK = this.stripCompanyPrefixes(this.normalizeArabicForMatching(k));
-      return (
-        (strippedRaw.length > 2 && strippedK.includes(strippedRaw)) ||
-        (strippedK.length > 2 && strippedRaw.includes(strippedK))
-      );
-    });
-
-    if (candidate) {
-      return {
-        entityType,
-        originalValue: rawVal,
-        matchedId: candidate,
-        matchedName: candidate,
-        confidence: 0.75,
-        isExact: false,
-        isAuthorized: true,
-      };
-    }
-
-    // 4. Unknown
-    return {
-      entityType,
-      originalValue: rawVal,
-      confidence: 0.0,
-      isExact: false,
-      isAuthorized: false,
-    };
-  }
-
-  private normalizeArabicForMatching(str: string): string {
-    return str
-      .toLowerCase()
-      .replace(/[أإآ]/g, 'ا')
-      .replace(/ة/g, 'ه')
-      .replace(/[\s\-_.\/\\()[\]]+/g, '')
-      .trim();
-  }
-
-  private stripCompanyPrefixes(str: string): string {
-    return str
-      .replace(/^شركة/, '')
-      .replace(/^مؤسسة/, '')
-      .replace(/^مصنع/, '')
-      .replace(/^نقليات/, '')
-      .trim();
   }
 }

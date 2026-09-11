@@ -104,6 +104,8 @@ export interface ImportSource {
   metadata?: Record<string, any>;
 }
 
+export * from './entityResolution';
+
 /**
  * Resolution info for a mapped entity
  */
@@ -115,6 +117,19 @@ export interface ImportEntityResolutionInfo {
   confidence: number;
   isExact: boolean;
   isAuthorized?: boolean;
+
+  // BLOCK 35 Enhanced Fields (Optional on base interface for full backwards-compatibility)
+  sourceValue?: string;
+  normalizedValue?: string;
+  matchedValue?: string;
+  entityId?: string;
+  matchMethod?: 'EXACT' | 'NORMALIZED' | 'ALIAS' | 'FUZZY' | 'NONE';
+  riskLevel?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  relationshipStatus?: 'VALID' | 'RELATIONSHIP_CONFLICT' | 'TRUCK_MATCHED_CARRIER_UNKNOWN' | 'DRIVER_CARRIER_CONFLICT' | 'MATERIAL_PROJECT_CONFLICT' | 'CROSS_PROJECT_BLOCKED' | 'NOT_APPLICABLE';
+  recommendation?: 'ACCEPT' | 'REVIEW' | 'REJECT' | 'UNKNOWN';
+  conflictDetails?: string;
+  candidates?: any[];
+  ambiguous?: boolean;
 }
 
 /**
@@ -255,6 +270,15 @@ export interface PipelineContext {
     driverIds?: string[];
     materialCodes?: string[];
     truckCarrierMap?: Record<string, string>;
+    // BLOCK 35 Enhanced Master Data & Aliases
+    carriers?: Array<{ carrierId: string; name: string; aliases?: string[]; projectId?: string; status?: 'ACTIVE' | 'INACTIVE' }>;
+    trucks?: Array<{ truckId: string; plate: string; carrierId?: string; projectId?: string; status?: 'ACTIVE' | 'INACTIVE' }>;
+    drivers?: Array<{ driverId: string; name: string; carrierId?: string; phone?: string; projectId?: string; status?: 'ACTIVE' | 'INACTIVE' }>;
+    materials?: Array<{ materialId: string; name: string; code?: string; projectId?: string; status?: 'ACTIVE' | 'INACTIVE' }>;
+    driverCarrierMap?: Record<string, string>;
+    projectMaterials?: string[];
+    projectCarriers?: string[];
+    approvedAliases?: Record<string, Record<string, string>>;
   };
   pricingRules?: Record<string, any>;
 }

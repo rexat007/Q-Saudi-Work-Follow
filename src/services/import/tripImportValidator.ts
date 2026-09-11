@@ -404,7 +404,7 @@ export class ExcelCsvTripValidator implements IImportValidator<CanonicalTripRow>
       }
     }
 
-    // 7. BLOCK 34 Rule 19: Truck-Carrier Association Integrity Check (WARNING - REQUIRES_REVIEW)
+    // 7. BLOCK 34 & BLOCK 35: Truck-Carrier Association Integrity Check (WARNING - REQUIRES_REVIEW)
     if (canonical.truckNo && canonical.carrier && context.knownEntities?.truckCarrierMap) {
       const cleanTruck = String(canonical.truckNo).trim();
       // Match case-insensitively across map keys
@@ -419,10 +419,10 @@ export class ExcelCsvTripValidator implements IImportValidator<CanonicalTripRow>
             issueId: `WRN-TRUCK-CARRIER-${rowNum}`,
             row: rowNum,
             field: 'carrier',
-            code: 'TRUCK_CARRIER_MISMATCH',
+            code: 'RELATIONSHIP_CONFLICT',
             severity: 'WARNING',
             message: `Truck (${cleanTruck}) is assigned to carrier (${expectedCarrier}) in master records, but row lists carrier (${cleanCarrier}).`,
-            messageAr: `الشاحنة (${cleanTruck}) مرتبطة في السجلات بالناقل (${expectedCarrier}) بينما السجل الوارد ينسبها للناقل (${cleanCarrier}).`,
+            messageAr: `تعارض في العلاقة: الشاحنة (${cleanTruck}) مرتبطة في السجلات بالناقل (${expectedCarrier}) بينما السجل الوارد ينسبها للناقل (${cleanCarrier}).`,
             resolvable: true,
             blocking: false,
             originalValue: {
@@ -432,6 +432,82 @@ export class ExcelCsvTripValidator implements IImportValidator<CanonicalTripRow>
             },
           });
         }
+      }
+    }
+
+    // 8. BLOCK 35: Truck Matched but Carrier Missing Check
+    if (canonical.truckNo && (!canonical.carrier || String(canonical.carrier).trim() === '')) {
+      const cleanTruck = String(canonical.truckNo).trim();
+      const isKnownTruck =
+        (context.knownEntities?.truckPlates && context.knownEntities.truckPlates.includes(cleanTruck)) ||
+        (context.knownEntities?.truckCarrierMap && Object.keys(context.knownEntities.truckCarrierMap).includes(cleanTruck)) ||
+        (context.knownEntities?.trucks && context.knownEntities.trucks.some((t) => t.plate === cleanTruck));
+
+      if (isKnownTruck) {
+        issues.push({
+          issueId: `WRN-TRUCK-NO-CARRIER-${rowNum}`,
+          row: rowNum,
+          field: 'carrier',
+          code: 'TRUCK_MATCHED_CARRIER_UNKNOWN',
+          severity: 'WARNING',
+          message: `Truck (${cleanTruck}) recognized in master data, but carrier is missing from the row. Carrier must not be guessed automatically.`,
+          messageAr: `تم التعرف على الشاحنة (${cleanTruck}) ولكن بيان الناقل مفقود من السجل الوارد. يمنع تخمين الناقل تلقائياً.`,
+          resolvable: true,
+          blocking: false,
+          originalValue: cleanTruck,
+        });
+      }
+    }
+
+    // 9. BLOCK 35: Driver-Carrier Relationship Integrity Check
+    if (canonical.driverName && canonical.carrier && context.knownEntities?.driverCarrierMap) {
+      const cleanDriver = String(canonical.driverName).trim();
+      const mapKey = Object.keys(context.knownEntities.driverCarrierMap).find(
+        (k) => k.toLowerCase() === cleanDriver.toLowerCase()
+      );
+      if (mapKey) {
+        const expectedCarrier = context.knownEntities.driverCarrierMap[mapKey];
+        const cleanCarrier = String(canonical.carrier).trim();
+        if (expectedCarrier && expectedCarrier.toLowerCase() !== cleanCarrier.toLowerCase()) {
+          issues.push({
+            issueId: `WRN-DRIVER-CARRIER-${rowNum}`,
+            row: rowNum,
+            field: 'carrier',
+            code: 'DRIVER_CARRIER_CONFLICT',
+            severity: 'WARNING',
+            message: `Driver (${cleanDriver}) is associated with carrier (${expectedCarrier}), but row lists carrier (${cleanCarrier}).`,
+            messageAr: `تعارض كفالة السائق: السائق (${cleanDriver}) مرتبط بالناقل (${expectedCarrier}) بينما السجل الوارد ينسبه للناقل (${cleanCarrier}).`,
+            resolvable: true,
+            blocking: false,
+            originalValue: {
+              driverName: cleanDriver,
+              rowCarrier: cleanCarrier,
+              masterCarrier: expectedCarrier,
+            },
+          });
+        }
+      }
+    }
+
+    // 10. BLOCK 35: Material-Project Scope Validation
+    if (canonical.materialType && context.knownEntities?.projectMaterials && context.knownEntities.projectMaterials.length > 0) {
+      const matStr = String(canonical.materialType).trim().toLowerCase();
+      const isProjectAuth = context.knownEntities.projectMaterials.some(
+        (m) => m.toLowerCase() === matStr
+      );
+      if (!isProjectAuth) {
+        issues.push({
+          issueId: `WRN-MAT-PROJ-${rowNum}`,
+          row: rowNum,
+          field: 'materialType',
+          code: 'MATERIAL_PROJECT_CONFLICT',
+          severity: 'WARNING',
+          message: `Material (${canonical.materialType}) is not authorized for project (${context.projectId}).`,
+          messageAr: `المادة (${canonical.materialType}) غير مصرح بها أو غير معتمدة ضمن نطاق هذا المشروع (${context.projectId}).`,
+          resolvable: true,
+          blocking: false,
+          originalValue: canonical.materialType,
+        });
       }
     }
 
