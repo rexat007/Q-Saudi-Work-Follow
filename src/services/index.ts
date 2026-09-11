@@ -26,3 +26,4 @@ export * from './import/tripEntityResolver';
 export * from './import/tripDuplicateChecker';
 export * from './import/tripImportCommitter';
 export * from './import/excelCsvPipeline.service';
+export * from './import/googleDrivePipeline.service';

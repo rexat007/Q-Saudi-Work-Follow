@@ -28,7 +28,8 @@ import {
   ChevronDown, 
   AlertCircle,
   HelpCircle,
-  Clock
+  Clock,
+  HardDrive
 } from 'lucide-react';
 import { 
   ImportBatch, 
@@ -42,10 +43,11 @@ import { SAMPLE_QUALITY_CONTEXT } from '../../data/sampleQualityData';
 import { SAMPLE_RAW_CSV_TEXT, createInitialSampleBatch } from '../../data/sampleImportBatches';
 import { UnifiedImportArchitectureSection } from './UnifiedImportArchitectureSection';
 import { ExcelCsvImportSection } from './ExcelCsvImportSection';
+import { GoogleDriveImportSection } from './GoogleDriveImportSection';
 
 export function ImportCenterView() {
-  // Navigation between Active Batch UI, BLOCK 30 Unified Architecture, and BLOCK 31 Excel/CSV
-  const [centerSubTab, setCenterSubTab] = useState<'EXCEL_CSV_IMPORT' | 'UNIFIED_ARCHITECTURE' | 'ACTIVE_BATCH'>('EXCEL_CSV_IMPORT');
+  // Navigation between Active Batch UI, Unified Architecture, Excel/CSV, and Google Drive
+  const [centerSubTab, setCenterSubTab] = useState<'GOOGLE_DRIVE_IMPORT' | 'EXCEL_CSV_IMPORT' | 'UNIFIED_ARCHITECTURE' | 'ACTIVE_BATCH'>('GOOGLE_DRIVE_IMPORT');
 
   // Active batch state
   const [activeBatch, setActiveBatch] = useState<ImportBatch>(createInitialSampleBatch);
@@ -303,6 +305,18 @@ export function ImportCenterView() {
       {/* Sub-navigation tabs */}
       <div className="flex items-center gap-2 border-b border-stone-200/80 pb-3 flex-wrap">
         <button
+          onClick={() => setCenterSubTab('GOOGLE_DRIVE_IMPORT')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            centerSubTab === 'GOOGLE_DRIVE_IMPORT'
+              ? 'bg-stone-900 text-white shadow-xs'
+              : 'bg-white text-stone-600 hover:bg-stone-100 border border-stone-200'
+          }`}
+        >
+          <HardDrive className="w-3.5 h-3.5 text-blue-400" />
+          <span>استيراد Google Drive (BLOCK 32)</span>
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-500 text-white font-black">Google Drive</span>
+        </button>
+        <button
           onClick={() => setCenterSubTab('EXCEL_CSV_IMPORT')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
             centerSubTab === 'EXCEL_CSV_IMPORT'
@@ -337,7 +351,9 @@ export function ImportCenterView() {
         </button>
       </div>
 
-      {centerSubTab === 'EXCEL_CSV_IMPORT' ? (
+      {centerSubTab === 'GOOGLE_DRIVE_IMPORT' ? (
+        <GoogleDriveImportSection />
+      ) : centerSubTab === 'EXCEL_CSV_IMPORT' ? (
         <ExcelCsvImportSection />
       ) : centerSubTab === 'UNIFIED_ARCHITECTURE' ? (
         <UnifiedImportArchitectureSection />

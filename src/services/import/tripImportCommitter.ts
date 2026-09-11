@@ -170,6 +170,7 @@ export class ExcelCsvTripCommitter implements IImportCommitter {
         unloadingActorId: canonical.destNetWeight ? context.userId : null,
         sourceMetadata: {
           importBatchId: batch.importBatchId,
+          sourceFileId: batch.source.sourceFileId,
           sourceFileName: batch.source.sourceFileName,
           sourceSheetName: batch.source.sourceSheetName,
           sourceRowId: row.sourceRowId || row.rowNumber,

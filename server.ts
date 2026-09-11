@@ -302,6 +302,70 @@ app.post('/api/workspace/upload', enforceFileUploadSecurity, async (req, res) =>
 });
 
 // ----------------------------------------------------
+// 6b. List Import Files from Google Drive Project Folder (BLOCK 32)
+// ----------------------------------------------------
+app.get('/api/workspace/drive/files', async (req, res) => {
+  try {
+    const bearerToken = req.headers.authorization;
+    const projectId = (req.query.projectId as string) || 'PRJ-NEOM-NORTH-01';
+    const folderId = req.query.folderId as string | undefined;
+
+    const result = await serverWorkspaceService.listProjectDriveFiles(projectId, folderId, bearerToken);
+
+    res.json({
+      success: true,
+      files: result.files,
+      folderId: result.folderId,
+      folderName: result.folderName,
+      totalCount: result.files.length,
+    });
+  } catch (error: any) {
+    console.error('Error in /api/workspace/drive/files:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'فشل استعراض ملفات Google Drive للمشروع',
+    });
+  }
+});
+
+// ----------------------------------------------------
+// 6c. Download File Content from Google Drive (BLOCK 32)
+// ----------------------------------------------------
+app.get('/api/workspace/drive/files/:fileId/content', async (req, res) => {
+  try {
+    const bearerToken = req.headers.authorization;
+    const { fileId } = req.params;
+
+    if (!fileId) {
+      return res.status(400).json({
+        success: false,
+        error: 'معرف ملف Google Drive مطلوب',
+      });
+    }
+
+    const { buffer, fileName, mimeType, size } = await serverWorkspaceService.getDriveFileContent(
+      fileId,
+      bearerToken
+    );
+
+    res.json({
+      success: true,
+      fileId,
+      fileName,
+      mimeType,
+      size,
+      contentBase64: buffer.toString('base64'),
+    });
+  } catch (error: any) {
+    console.error('Error in /api/workspace/drive/files/:fileId/content:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'فشل تحميل محتوى الملف من Google Drive',
+    });
+  }
+});
+
+// ----------------------------------------------------
 // 7. Security Enforcement: Trip Update with RBAC
 // ----------------------------------------------------
 app.patch(

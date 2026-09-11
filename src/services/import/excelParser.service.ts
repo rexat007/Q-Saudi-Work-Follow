@@ -22,7 +22,7 @@ export interface ExcelParseOptions {
 }
 
 export class ExcelImportParser implements IImportParser<ArrayBuffer | Uint8Array | string, Record<string, any>> {
-  public readonly supportedSourceTypes: readonly OperationSourceType[] = ['EXCEL'];
+  public readonly supportedSourceTypes: readonly OperationSourceType[] = ['EXCEL', 'GOOGLE_DRIVE'];
 
   /**
    * Helper to inspect workbook sheets without full parse

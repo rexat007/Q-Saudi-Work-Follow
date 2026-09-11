@@ -6,6 +6,7 @@ import {
   WorkspaceSyncSummary,
   UpsertResult
 } from '../types/workspace';
+import { GoogleDriveFileItem } from '../types/googleDriveImport';
 import { ProjectEntity } from '../types/entities';
 import { projectRepository } from '../repositories/project.repository';
 import { tripEngineService } from './tripEngine.service';
@@ -311,6 +312,75 @@ export class ClientWorkspaceService {
 
     const data = await res.json();
     return data.data;
+  }
+
+  /**
+   * Lists available operational Excel and CSV files from a project's Google Drive folder.
+   * BLOCK 32: Google Drive File Picker
+   */
+  public async listDriveImportFiles(
+    projectId: string,
+    folderId?: string
+  ): Promise<{ files: GoogleDriveFileItem[]; folderId: string; folderName: string }> {
+    const token = this.getAccessToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const params = new URLSearchParams({ projectId });
+    if (folderId) params.append('folderId', folderId);
+
+    const res = await fetch(`/api/workspace/drive/files?${params.toString()}`, {
+      headers,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      throw new Error(err.error || 'فشل استعراض ملفات Google Drive');
+    }
+
+    const data = await res.json();
+    return {
+      files: data.files || [],
+      folderId: data.folderId,
+      folderName: data.folderName,
+    };
+  }
+
+  /**
+   * Downloads raw file bytes from Google Drive for client-side pipeline intake.
+   * BLOCK 32: Streams file bytes for Unified Import Pipeline
+   */
+  public async downloadDriveFileContent(
+    fileId: string
+  ): Promise<{ buffer: ArrayBuffer; fileName: string; mimeType: string; size: number }> {
+    const token = this.getAccessToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`/api/workspace/drive/files/${encodeURIComponent(fileId)}/content`, {
+      headers,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      throw new Error(err.error || 'فشل تحميل محتوى الملف من Google Drive');
+    }
+
+    const json = await res.json();
+    const base64 = json.contentBase64 || '';
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    return {
+      buffer: bytes.buffer,
+      fileName: json.fileName,
+      mimeType: json.mimeType,
+      size: json.size || bytes.length,
+    };
   }
 }
 

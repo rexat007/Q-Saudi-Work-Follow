@@ -22,7 +22,7 @@ export interface CsvParseOptions {
 }
 
 export class CsvImportParser implements IImportParser<string | ArrayBuffer | Uint8Array, Record<string, any>> {
-  public readonly supportedSourceTypes: readonly OperationSourceType[] = ['CSV'];
+  public readonly supportedSourceTypes: readonly OperationSourceType[] = ['CSV', 'GOOGLE_DRIVE'];
 
   public parse(
     source: ImportSource,
