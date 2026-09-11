@@ -6,7 +6,9 @@ import {
   setDoc, 
   updateDoc, 
   serverTimestamp, 
-  onSnapshot 
+  onSnapshot,
+  query,
+  where
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { handleFirestoreError, OperationType } from '../firebase/errors';
@@ -26,8 +28,21 @@ export class ProjectRepository {
     }
   }
 
-  async listAll(): Promise<ProjectEntity[]> {
+  async listAll(assignedProjectIds?: string[], isSuperAdmin?: boolean): Promise<ProjectEntity[]> {
     try {
+      // If user is not super admin and assignedProjectIds is provided, restrict to assigned projects
+      if (!isSuperAdmin && assignedProjectIds !== undefined) {
+        if (assignedProjectIds.length === 0) {
+          return [];
+        }
+        const q = query(
+          collection(db, this.collectionName),
+          where('projectId', 'in', assignedProjectIds.slice(0, 30))
+        );
+        const snap = await getDocs(q);
+        return snap.docs.map(d => d.data() as ProjectEntity);
+      }
+
       const snap = await getDocs(collection(db, this.collectionName));
       return snap.docs.map(d => d.data() as ProjectEntity);
     } catch (error) {
@@ -64,9 +79,23 @@ export class ProjectRepository {
     }
   }
 
-  subscribeToProjects(onData: (projects: ProjectEntity[]) => void, onError?: (err: Error) => void) {
+  subscribeToProjects(
+    onData: (projects: ProjectEntity[]) => void, 
+    onError?: (err: Error) => void,
+    assignedProjectIds?: string[],
+    isSuperAdmin?: boolean
+  ) {
+    if (!isSuperAdmin && assignedProjectIds !== undefined && assignedProjectIds.length === 0) {
+      onData([]);
+      return () => {};
+    }
+
+    const q = (!isSuperAdmin && assignedProjectIds && assignedProjectIds.length > 0)
+      ? query(collection(db, this.collectionName), where('projectId', 'in', assignedProjectIds.slice(0, 30)))
+      : collection(db, this.collectionName);
+
     return onSnapshot(
-      collection(db, this.collectionName),
+      q,
       (snapshot) => {
         const list = snapshot.docs.map(d => d.data() as ProjectEntity);
         onData(list);

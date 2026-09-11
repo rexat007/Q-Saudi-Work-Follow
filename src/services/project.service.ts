@@ -9,8 +9,9 @@ export class ProjectService {
     return projectRepository.findById(projectId);
   }
 
-  async getAllProjects(): Promise<ProjectEntity[]> {
-    return projectRepository.listAll();
+  async getAllProjects(context?: AuthUserContext): Promise<ProjectEntity[]> {
+    const isSuperAdmin = context?.role === 'SUPER_ADMIN';
+    return projectRepository.listAll(context?.assignedProjectIds, isSuperAdmin);
   }
 
   async createProject(

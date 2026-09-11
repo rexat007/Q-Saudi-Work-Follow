@@ -740,6 +740,8 @@ if (typeof process !== 'undefined' && process.argv && process.argv[1]?.includes(
     console.log('======================================================\n');
     if (!res.allPassed) {
       process.exit(1);
+    } else {
+      process.exit(0);
     }
   });
 }

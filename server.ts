@@ -16,6 +16,11 @@ import {
   enforcePricingRuleHistoricalProtection,
   enforceIdempotency,
   enforceFileUploadSecurity,
+  enforceRole,
+  enforceAdminOnly,
+  enforceAuditorOrAdmin,
+  enforceDispatcherOrAbove,
+  enforceWeighbridgeUnloadIntegrity,
 } from './server/security.middleware';
 
 const app = express();
@@ -54,7 +59,7 @@ app.get('/api/workspace/migration-plan', (req, res) => {
 // ----------------------------------------------------
 // 3. Provision Google Drive & Sheets for Project
 // ----------------------------------------------------
-app.post('/api/workspace/provision', async (req, res) => {
+app.post('/api/workspace/provision', enforceProjectIsolation, enforceAdminOnly, async (req, res) => {
   try {
     const bearerToken = req.headers.authorization;
     const { project } = req.body;
@@ -85,7 +90,7 @@ app.post('/api/workspace/provision', async (req, res) => {
 // ----------------------------------------------------
 // 4. Upsert Operations (Trips) to Google Sheets
 // ----------------------------------------------------
-app.post('/api/workspace/sync/trips', async (req, res) => {
+app.post('/api/workspace/sync/trips', enforceProjectIsolation, enforceDispatcherOrAbove, async (req, res) => {
   try {
     const bearerToken = req.headers.authorization;
     const { spreadsheetId, trips } = req.body;
@@ -131,7 +136,7 @@ app.post('/api/workspace/sync/trips', async (req, res) => {
 // ----------------------------------------------------
 // 5. Full Projection Sync (All 6 Tabs) to Google Sheets
 // ----------------------------------------------------
-app.post('/api/workspace/sync/sheets', async (req, res) => {
+app.post('/api/workspace/sync/sheets', enforceProjectIsolation, enforceDispatcherOrAbove, async (req, res) => {
   try {
     const bearerToken = req.headers.authorization;
     const { 
@@ -263,7 +268,7 @@ app.post('/api/workspace/sync/sheets', async (req, res) => {
 // ----------------------------------------------------
 // 6. Upload Document to Google Drive Subfolder (Security Hardened)
 // ----------------------------------------------------
-app.post('/api/workspace/upload', enforceFileUploadSecurity, async (req, res) => {
+app.post('/api/workspace/upload', enforceProjectIsolation, enforceFileUploadSecurity, async (req, res) => {
   try {
     const bearerToken = req.headers.authorization;
     const { subfolderId, fileName, mimeType, fileContentBase64 } = req.body;
@@ -304,7 +309,7 @@ app.post('/api/workspace/upload', enforceFileUploadSecurity, async (req, res) =>
 // ----------------------------------------------------
 // 6b. List Import Files from Google Drive Project Folder (BLOCK 32)
 // ----------------------------------------------------
-app.get('/api/workspace/drive/files', async (req, res) => {
+app.get('/api/workspace/drive/files', enforceProjectIsolation, async (req, res) => {
   try {
     const bearerToken = req.headers.authorization;
     const projectId = (req.query.projectId as string) || 'PRJ-NEOM-NORTH-01';
@@ -368,7 +373,7 @@ app.get('/api/workspace/drive/files/:fileId/content', async (req, res) => {
 // ----------------------------------------------------
 // 6d. List Google Spreadsheets for Project (BLOCK 33)
 // ----------------------------------------------------
-app.get('/api/workspace/sheets/spreadsheets', async (req, res) => {
+app.get('/api/workspace/sheets/spreadsheets', enforceProjectIsolation, async (req, res) => {
   try {
     const bearerToken = req.headers.authorization;
     const projectId = (req.query.projectId as string) || 'PRJ-NEOM-NORTH-01';
@@ -455,12 +460,13 @@ app.get('/api/workspace/sheets/:spreadsheetId/values', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// 7. Security Enforcement: Trip Update with RBAC
+// 7. Security Enforcement: Trip Update with RBAC & Weighbridge Integrity
 // ----------------------------------------------------
 app.patch(
   '/api/projects/:projectId/trips/:tripId',
   enforceProjectIsolation,
   enforceTripSupervisorRestrictions,
+  enforceWeighbridgeUnloadIntegrity,
   (req, res) => {
     res.json({
       success: true,
@@ -477,6 +483,7 @@ app.patch(
   '/api/trips/:tripId',
   enforceProjectIsolation,
   enforceTripSupervisorRestrictions,
+  enforceWeighbridgeUnloadIntegrity,
   (req, res) => {
     res.json({
       success: true,
@@ -488,11 +495,12 @@ app.patch(
 );
 
 // ----------------------------------------------------
-// 8. Security Enforcement: Import Truck with Carrier Check
+// 8. Security Enforcement: Import Truck with Carrier Check & RBAC
 // ----------------------------------------------------
 app.post(
   '/api/projects/:projectId/trucks/import',
   enforceProjectIsolation,
+  enforceDispatcherOrAbove,
   enforceTruckCarrierIntegrity,
   (req, res) => {
     const { targetCarrierId, truck } = req.body;
@@ -507,11 +515,12 @@ app.post(
 );
 
 // ----------------------------------------------------
-// 9. Security Enforcement: Pricing Rule Update & Immutability
+// 9. Security Enforcement: Pricing Rule Update & Immutability (Auditor or Admin)
 // ----------------------------------------------------
 app.post(
   '/api/projects/:projectId/pricing-rules/:ruleId/update',
   enforceProjectIsolation,
+  enforceAuditorOrAdmin,
   enforcePricingRuleHistoricalProtection,
   (req, res) => {
     res.json({
@@ -519,6 +528,74 @@ app.post(
       message: `تم تحديث قاعدة التسعير (${req.params.ruleId}) بنجاح`,
       ruleId: req.params.ruleId,
       projectId: req.params.projectId,
+    });
+  }
+);
+
+// ----------------------------------------------------
+// 9b. Legacy Migration Commit (Admin Only)
+// ----------------------------------------------------
+app.post(
+  '/api/projects/:projectId/legacy-migration/commit',
+  enforceProjectIsolation,
+  enforceAdminOnly,
+  (req, res) => {
+    res.json({
+      success: true,
+      message: 'تم اعتماد وتثبيت حزمة الهجرة القديمة بنجاح من قبل مدير المشروع',
+      projectId: req.params.projectId,
+      batchId: req.body.batchId,
+    });
+  }
+);
+
+// ----------------------------------------------------
+// 9c. Entity Resolution Approval (Admin Only)
+// ----------------------------------------------------
+app.post(
+  '/api/projects/:projectId/entity-resolution/approve',
+  enforceProjectIsolation,
+  enforceAdminOnly,
+  (req, res) => {
+    res.json({
+      success: true,
+      message: 'تم اعتماد مطابقة ودمج الكيانات بنجاح من قبل مدير المشروع',
+      projectId: req.params.projectId,
+      candidateId: req.body.candidateId,
+    });
+  }
+);
+
+// ----------------------------------------------------
+// 9d. Weighbridge Import Commit (Dispatcher or Above)
+// ----------------------------------------------------
+app.post(
+  '/api/projects/:projectId/weighbridge/commit',
+  enforceProjectIsolation,
+  enforceDispatcherOrAbove,
+  (req, res) => {
+    res.json({
+      success: true,
+      message: 'تم اعتماد واستيراد تذاكر الميزان بنجاح',
+      projectId: req.params.projectId,
+      ticketsCount: req.body.tickets?.length || 0,
+    });
+  }
+);
+
+// ----------------------------------------------------
+// 9e. Audit Logs Query (Auditor or Admin Only)
+// ----------------------------------------------------
+app.get(
+  '/api/projects/:projectId/audit-logs',
+  enforceProjectIsolation,
+  enforceAuditorOrAdmin,
+  (req, res) => {
+    res.json({
+      success: true,
+      projectId: req.params.projectId,
+      auditLogs: [],
+      message: 'تم استرجاع سجلات التدقيق للمستخدم المصرح له بنجاح',
     });
   }
 );

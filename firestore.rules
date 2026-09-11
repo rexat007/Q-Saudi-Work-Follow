@@ -7,7 +7,9 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // --- Global Helpers ---
+    // =========================================================================
+    // Global Security & Identity Helpers
+    // =========================================================================
     function isSignedIn() {
       return request.auth != null;
     }
@@ -38,28 +40,76 @@ service cloud.firestore {
              data.createdBy == existing().createdBy;
     }
 
-    // Projects collection
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.isSuperAdmin == true ||
+        request.auth.token.role == 'SUPER_ADMIN' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'SUPER_ADMIN')
+      );
+    }
+
+    function isServerAuthorized() {
+      return isSignedIn() && (
+        request.auth.token.isServer == true ||
+        request.auth.token.role == 'SYSTEM' ||
+        isSuperAdmin()
+      );
+    }
+
+    function isProjectMember(projectId) {
+      return isSignedIn() && (
+        isSuperAdmin() ||
+        (request.auth.token.assignedProjectIds != null && projectId in request.auth.token.assignedProjectIds) ||
+        (request.auth.token.projectRoles != null && projectId in request.auth.token.projectRoles) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         (projectId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedProjectIds ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'SUPER_ADMIN'))
+      );
+    }
+
+    function hasProjectRole(projectId, allowedRoles) {
+      return isSignedIn() && (
+        isSuperAdmin() ||
+        (request.auth.token.role != null && request.auth.token.role in allowedRoles && isProjectMember(projectId)) ||
+        (request.auth.token.projectRoles != null && request.auth.token.projectRoles[projectId] in allowedRoles) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in allowedRoles ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'SUPER_ADMIN') &&
+         projectId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedProjectIds)
+      );
+    }
+
+    // =========================================================================
+    // 1. Projects Collection & Multi-Tenant Boundaries
+    // =========================================================================
     match /projects/{projectId} {
-      allow get: if isSignedIn() && isValidId(projectId);
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(projectId) && 
+      allow get: if isSignedIn() && isValidId(projectId) && isProjectMember(projectId);
+      allow list: if isSignedIn() && (
+        isSuperAdmin() ||
+        isProjectMember(projectId)
+      );
+      allow create: if isSuperAdmin() && isValidId(projectId) && 
                        isAuditStampedCreate(incoming()) &&
                        incoming().projectId == projectId &&
                        incoming().nameAr is string && incoming().nameAr.size() > 0 &&
                        incoming().nameAr.size() <= 200;
       allow update: if isSignedIn() && isValidId(projectId) &&
+                       hasProjectRole(projectId, ['PROJECT_ADMIN', 'SUPER_ADMIN']) &&
                        isAuditStampedUpdate(incoming()) &&
                        incoming().projectId == existing().projectId;
       allow delete: if false; // Soft-delete only via status
 
       // Carriers subcollection
       match /carriers/{carrierId} {
-        allow get, list: if isSignedIn() && isValidId(projectId);
+        allow get, list: if isSignedIn() && isValidId(projectId) && isProjectMember(projectId);
         allow create: if isSignedIn() && isValidId(carrierId) &&
+                         hasProjectRole(projectId, ['PROJECT_ADMIN', 'SUPER_ADMIN']) &&
                          isAuditStampedCreate(incoming()) &&
                          incoming().carrierId == carrierId &&
                          incoming().projectId == projectId;
         allow update: if isSignedIn() && isValidId(carrierId) &&
+                         hasProjectRole(projectId, ['PROJECT_ADMIN', 'SUPER_ADMIN']) &&
                          isAuditStampedUpdate(incoming()) &&
                          incoming().carrierId == existing().carrierId &&
                          incoming().projectId == existing().projectId;
@@ -68,28 +118,32 @@ service cloud.firestore {
 
       // Pricing Rules subcollection
       match /pricing_rules/{pricingRuleId} {
-        allow get, list: if isSignedIn() && isValidId(projectId);
+        allow get, list: if isSignedIn() && isValidId(projectId) && isProjectMember(projectId);
         allow create: if isSignedIn() && isValidId(pricingRuleId) &&
+                         hasProjectRole(projectId, ['PROJECT_ADMIN', 'FINANCE_AUDITOR', 'SUPER_ADMIN']) &&
                          isAuditStampedCreate(incoming()) &&
                          incoming().pricingRuleId == pricingRuleId &&
                          incoming().projectId == projectId &&
                          incoming().baseRateSAR is number;
         allow update: if isSignedIn() && isValidId(pricingRuleId) &&
+                         hasProjectRole(projectId, ['PROJECT_ADMIN', 'FINANCE_AUDITOR', 'SUPER_ADMIN']) &&
                          isAuditStampedUpdate(incoming()) &&
                          incoming().pricingRuleId == existing().pricingRuleId &&
                          incoming().projectId == existing().projectId &&
-                         incoming().baseRateSAR == existing().baseRateSAR; // Base rate is immutable once published; requires Copy-on-Write version
+                         incoming().baseRateSAR == existing().baseRateSAR; // Base rate is immutable once created (requires Copy-on-Write v2)
         allow delete: if false;
       }
 
       // Materials subcollection
       match /materials/{materialId} {
-        allow get, list: if isSignedIn() && isValidId(projectId);
+        allow get, list: if isSignedIn() && isValidId(projectId) && isProjectMember(projectId);
         allow create: if isSignedIn() && isValidId(materialId) &&
+                         hasProjectRole(projectId, ['PROJECT_ADMIN', 'SUPER_ADMIN']) &&
                          isAuditStampedCreate(incoming()) &&
                          incoming().materialId == materialId &&
                          incoming().projectId == projectId;
         allow update: if isSignedIn() && isValidId(materialId) &&
+                         hasProjectRole(projectId, ['PROJECT_ADMIN', 'SUPER_ADMIN']) &&
                          isAuditStampedUpdate(incoming()) &&
                          incoming().materialId == existing().materialId &&
                          incoming().projectId == existing().projectId;
@@ -98,13 +152,15 @@ service cloud.firestore {
 
       // Trucks subcollection
       match /trucks/{truckId} {
-        allow get, list: if isSignedIn() && isValidId(projectId);
+        allow get, list: if isSignedIn() && isValidId(projectId) && isProjectMember(projectId);
         allow create: if isSignedIn() && isValidId(truckId) &&
+                         hasProjectRole(projectId, ['PROJECT_ADMIN', 'DISPATCHER', 'SUPERVISOR', 'SUPER_ADMIN']) &&
                          isAuditStampedCreate(incoming()) &&
                          incoming().truckId == truckId &&
                          incoming().projectId == projectId &&
                          incoming().carrierId is string && incoming().carrierId.size() > 0;
         allow update: if isSignedIn() && isValidId(truckId) &&
+                         hasProjectRole(projectId, ['PROJECT_ADMIN', 'DISPATCHER', 'SUPERVISOR', 'SUPER_ADMIN']) &&
                          isAuditStampedUpdate(incoming()) &&
                          incoming().truckId == existing().truckId &&
                          incoming().projectId == existing().projectId &&
@@ -114,13 +170,15 @@ service cloud.firestore {
 
       // Drivers subcollection
       match /drivers/{driverId} {
-        allow get, list: if isSignedIn() && isValidId(projectId);
+        allow get, list: if isSignedIn() && isValidId(projectId) && isProjectMember(projectId);
         allow create: if isSignedIn() && isValidId(driverId) &&
+                         hasProjectRole(projectId, ['PROJECT_ADMIN', 'DISPATCHER', 'SUPERVISOR', 'SUPER_ADMIN']) &&
                          isAuditStampedCreate(incoming()) &&
                          incoming().driverId == driverId &&
                          incoming().projectId == projectId &&
                          incoming().carrierId is string && incoming().carrierId.size() > 0;
         allow update: if isSignedIn() && isValidId(driverId) &&
+                         hasProjectRole(projectId, ['PROJECT_ADMIN', 'DISPATCHER', 'SUPERVISOR', 'SUPER_ADMIN']) &&
                          isAuditStampedUpdate(incoming()) &&
                          incoming().driverId == existing().driverId &&
                          incoming().projectId == existing().projectId;
@@ -129,40 +187,70 @@ service cloud.firestore {
 
       // Trips subcollection
       match /trips/{tripId} {
-        allow get, list: if isSignedIn() && isValidId(projectId);
+        allow get, list: if isSignedIn() && isValidId(projectId) && isProjectMember(projectId);
         allow create: if isSignedIn() && isValidId(tripId) &&
+                         hasProjectRole(projectId, ['PROJECT_ADMIN', 'DISPATCHER', 'SUPERVISOR', 'SUPER_ADMIN']) &&
                          isAuditStampedCreate(incoming()) &&
                          incoming().tripId == tripId &&
                          incoming().projectId == projectId;
         allow update: if isSignedIn() && isValidId(tripId) &&
+                         isProjectMember(projectId) &&
+                         hasProjectRole(projectId, ['PROJECT_ADMIN', 'DISPATCHER', 'SUPERVISOR', 'FINANCE_AUDITOR', 'SUPER_ADMIN']) &&
                          isAuditStampedUpdate(incoming()) &&
                          incoming().tripId == existing().tripId &&
                          incoming().projectId == existing().projectId &&
                          incoming().carrierId == existing().carrierId && // Carrier immutable
                          incoming().truckId == existing().truckId && // Truck immutable
-                         incoming().pricingRuleId == existing().pricingRuleId; // Pricing rule immutable
-        allow delete: if false;
+                         incoming().pricingRuleId == existing().pricingRuleId && // Pricing rule immutable
+                         // Snapshot & Financial Immutability Protection
+                         (existing().pricingSnapshot == null || incoming().pricingSnapshot == null ||
+                          (incoming().pricingSnapshot.agreedRate == existing().pricingSnapshot.agreedRate &&
+                           incoming().pricingSnapshot.settlementAmount == existing().pricingSnapshot.settlementAmount)) &&
+                         (existing().financials == null || existing().financials.isFinalized != true ||
+                          (incoming().financials.isFinalized == true && incoming().financials.totalAmountSAR == existing().financials.totalAmountSAR)) &&
+                         // Unloading, Weighbridge & Variance Workflow Protection (Gap 2)
+                         (isServerAuthorized() ? (
+                           // Server-authorized writes: enforce variance formula and prevent fake zero variance
+                           (incoming().destNetWeight == null || existing().netWeight == null ||
+                            (incoming().destNetWeight == existing().netWeight ? 
+                               (incoming().varianceWeight == 0 && (existing().destNetWeight != null || incoming().unloadDecision == 'ACCEPT_ORIGIN_NET_AS_DESTINATION' || incoming().unloadingDataSource == 'WEIGHBRIDGE')) :
+                               (incoming().varianceWeight == (incoming().destNetWeight - existing().netWeight)))) &&
+                           (incoming().destNetWeight != null || incoming().varianceWeight == null || incoming().varianceWeight == existing().varianceWeight)
+                         ) : (
+                           // Direct client updates CANNOT mutate unloading workflow fields
+                           (!('destNetWeight' in incoming()) || incoming().destNetWeight == existing().destNetWeight) &&
+                           (!('varianceWeight' in incoming()) || incoming().varianceWeight == existing().varianceWeight) &&
+                           (!('unloadTime' in incoming()) || incoming().unloadTime == existing().unloadTime) &&
+                           (!('unloadingActorType' in incoming()) || incoming().unloadingActorType == existing().unloadingActorType) &&
+                           (!('unloadingActorId' in incoming()) || incoming().unloadingActorId == existing().unloadingActorId) &&
+                           (!('unloadingDataSource' in incoming()) || incoming().unloadingDataSource == existing().unloadingDataSource) &&
+                           (!('unloadDecision' in incoming()) || incoming().unloadDecision == existing().unloadDecision)
+                         ));
+        allow delete: if false; // Tax/VAT compliance: trips cannot be hard-deleted
 
-        // Trip Events
+        // Trip Events (Strict Append-Only Event Stream)
         match /events/{eventId} {
-          allow get, list: if isSignedIn();
+          allow get, list: if isSignedIn() && isProjectMember(projectId);
           allow create: if isSignedIn() && isValidId(eventId) &&
+                           isProjectMember(projectId) &&
                            isAuditStampedCreate(incoming()) &&
                            incoming().eventId == eventId &&
                            incoming().tripId == tripId &&
                            incoming().projectId == projectId;
-          allow update, delete: if false; // Immutable Event Stream
+          allow update, delete: if false; // Strictly Immutable Event Stream
         }
 
         // Trip Exceptions
         match /exceptions/{exceptionId} {
-          allow get, list: if isSignedIn();
+          allow get, list: if isSignedIn() && isProjectMember(projectId);
           allow create: if isSignedIn() && isValidId(exceptionId) &&
+                           isProjectMember(projectId) &&
                            isAuditStampedCreate(incoming()) &&
                            incoming().exceptionId == exceptionId &&
                            incoming().tripId == tripId &&
                            incoming().projectId == projectId;
           allow update: if isSignedIn() && isValidId(exceptionId) &&
+                           hasProjectRole(projectId, ['PROJECT_ADMIN', 'FINANCE_AUDITOR', 'SUPER_ADMIN']) &&
                            isAuditStampedUpdate(incoming()) &&
                            incoming().exceptionId == existing().exceptionId &&
                            incoming().tripId == existing().tripId &&
@@ -171,14 +259,16 @@ service cloud.firestore {
         }
       }
 
-      // Sync Operations
+      // Sync Operations (Idempotency Journal)
       match /sync_operations/{operationId} {
-        allow get, list: if isSignedIn() && isValidId(projectId);
+        allow get, list: if isSignedIn() && isValidId(projectId) && isProjectMember(projectId);
         allow create: if isSignedIn() && isValidId(operationId) &&
+                         isProjectMember(projectId) &&
                          isAuditStampedCreate(incoming()) &&
                          incoming().operationId == operationId &&
                          incoming().projectId == projectId;
         allow update: if isSignedIn() && isValidId(operationId) &&
+                         isProjectMember(projectId) &&
                          isAuditStampedUpdate(incoming()) &&
                          incoming().operationId == existing().operationId &&
                          incoming().projectId == existing().projectId;
@@ -187,12 +277,14 @@ service cloud.firestore {
 
       // Import Batches
       match /import_batches/{batchId} {
-        allow get, list: if isSignedIn() && isValidId(projectId);
+        allow get, list: if isSignedIn() && isValidId(projectId) && isProjectMember(projectId);
         allow create: if isSignedIn() && isValidId(batchId) &&
+                         hasProjectRole(projectId, ['PROJECT_ADMIN', 'DISPATCHER', 'SUPERVISOR', 'SUPER_ADMIN']) &&
                          isAuditStampedCreate(incoming()) &&
                          incoming().batchId == batchId &&
                          incoming().projectId == projectId;
         allow update: if isSignedIn() && isValidId(batchId) &&
+                         hasProjectRole(projectId, ['PROJECT_ADMIN', 'DISPATCHER', 'SUPERVISOR', 'SUPER_ADMIN']) &&
                          isAuditStampedUpdate(incoming()) &&
                          incoming().batchId == existing().batchId &&
                          incoming().projectId == existing().projectId;
@@ -200,25 +292,34 @@ service cloud.firestore {
       }
     }
 
-    // Global Users collection
+    // =========================================================================
+    // 2. Global Users Collection
+    // =========================================================================
     match /users/{userId} {
       allow get: if isSignedIn() && isValidId(userId);
       allow list: if isSignedIn();
       allow create: if isSignedIn() && isValidId(userId) &&
+                       (isSuperAdmin() || request.auth.uid == userId) &&
                        isAuditStampedCreate(incoming()) &&
                        incoming().userId == userId;
       allow update: if isSignedIn() && isValidId(userId) &&
+                       (isSuperAdmin() || (request.auth.uid == userId && incoming().role == existing().role)) &&
                        isAuditStampedUpdate(incoming()) &&
                        incoming().userId == existing().userId;
       allow delete: if false;
     }
 
-    // Global Audit Logs collection (Strict Append-Only)
+    // =========================================================================
+    // 3. Global Audit Logs Collection (Strict Append-Only with Actor Verification)
+    // =========================================================================
     match /audit_logs/{auditLogId} {
       allow get, list: if isSignedIn();
       allow create: if isSignedIn() && isValidId(auditLogId) &&
                        isAuditStampedCreate(incoming()) &&
-                       incoming().auditLogId == auditLogId;
+                       incoming().auditLogId == auditLogId &&
+                       (incoming().actor.userId == request.auth.uid ||
+                        incoming().createdBy == request.auth.uid ||
+                        isSuperAdmin());
       allow update, delete: if false; // Strictly Immutable
     }
   }

@@ -403,6 +403,27 @@ export class TripService {
       }
     }
 
+    // Direct Unloading & Weighbridge Workflow Tampering Protection (Gap 2)
+    const isSystemOrServer = (context.role as string) === 'SYSTEM' || (context as any).isServer === true;
+    const upd = updates as any;
+    if (!isSystemOrServer) {
+      if (upd.destNetWeight !== undefined || upd.weights?.destinationNetKg !== undefined) {
+        throw new Error('رفض أمني (Workflow Bypass): لا يمكن تعديل صافي وزن الوجهة (destNetWeight) مباشرة. يجب إتمامه عبر محطة التفريغ المعتمدة.');
+      }
+      if (upd.varianceWeight !== undefined || upd.weights?.varianceKg !== undefined) {
+        throw new Error('رفض أمني (Workflow Bypass): لا يمكن تعديل فارق الوزن (varianceWeight) مباشرة. يتم حسابه آلياً من الخادم.');
+      }
+      if (upd.unloadDecision !== undefined) {
+        throw new Error('رفض أمني (Workflow Bypass): لا يمكن تحديد قرار التفريغ (unloadDecision) مباشرة خارج إجراءات الميزان المعتمدة.');
+      }
+      if (upd.unloadTime !== undefined) {
+        throw new Error('رفض أمني (Workflow Bypass): لا يمكن تعديل وقت التفريغ (unloadTime) مباشرة خارج دورة حياة التفريغ.');
+      }
+      if (upd.unloadingActorId !== undefined) {
+        throw new Error('رفض أمني (Workflow Bypass): لا يمكن تعديل معرف مسؤول التفريغ (unloadingActorId) مباشرة.');
+      }
+    }
+
     let existing: TripEntity | null = null;
     try {
       existing = await tripRepository.findById(projectId, tripId);

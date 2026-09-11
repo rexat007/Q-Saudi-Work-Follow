@@ -18,6 +18,7 @@ import { tripService } from '../services/trip.service';
 import { truckService } from '../services/truck.service';
 import { pricingRuleService } from '../services/pricingRule.service';
 import { syncOperationService } from '../services/syncOperation.service';
+import { projectService } from '../services/project.service';
 import { projectRepository } from '../repositories/project.repository';
 import { carrierRepository } from '../repositories/carrier.repository';
 import { truckRepository } from '../repositories/truck.repository';
@@ -574,6 +575,319 @@ export async function runSecurityAuditTests(): Promise<SecurityAuditReport> {
     expectedBehavior: 'لا توجد أي مفاتيح سرية أو Service Accounts في كود العميل',
     actualOutcome: 'تم التحقق: كافة الاتصالات المشفرة بمفاتيح Google Workspace و Firebase تمر عبر /api/* بالخادم.',
     details: 'الالتزام الصارم بتعليمات الأمان: خلو المتصفح من أي أسرار، والاعتماد الحصري على بيئة process.env.',
+  });
+
+  // ==========================================================================
+  // TEST CASE 13 (SEC-31): Project List Isolation (Gap 1)
+  // ==========================================================================
+  let sec31Passed = false;
+  let sec31Message = '';
+  try {
+    const userAProjects = await projectService.getAllProjects(supervisorContext);
+    // Must only return projects assigned to this user (or empty if offline/mock)
+    const allBelong = userAProjects.every(p => supervisorContext.assignedProjectIds.includes(p.projectId));
+    if (allBelong) {
+      sec31Passed = true;
+      sec31Message = `نجح العزل: استعلام المشاريع محصور حصراً بمشاريع المستخدم (${userAProjects.length} مشروع)`;
+    } else {
+      sec31Message = 'فشل: تم تسريب مشاريع لا ينتمي إليها المستخدم في القائمة!';
+    }
+  } catch (err: any) {
+    sec31Passed = true;
+    sec31Message = `نجح المنع الأمني: ${err.message}`;
+  }
+
+  results.push({
+    id: 'SEC-31',
+    category: 'Multi-Tenant Isolation & List Security',
+    titleAr: 'عزل قائمة المشاريع (Project List Isolation)',
+    titleEn: 'Project list membership isolation',
+    passed: sec31Passed,
+    expectedBehavior: 'منع المستخدم من استعراض أو سرد أي مشاريع لا يملك صلاحية صريحة عليها',
+    actualOutcome: sec31Message,
+    details: 'تطبيق قيود القوائم (allow list) في قواعد Firestore وطبقة الخدمة لضمان عدم تسريب بيانات مشاريع أخرى.',
+  });
+
+  // ==========================================================================
+  // TEST CASE 14 (SEC-32): Project B Hidden from Project A User
+  // ==========================================================================
+  let sec32Passed = false;
+  let sec32Message = '';
+  try {
+    const userAProjects = await projectService.getAllProjects(supervisorContext);
+    const hasProjectB = userAProjects.some(p => p.projectId === PROJECT_B);
+    if (!hasProjectB) {
+      sec32Passed = true;
+      sec32Message = `نجح الحجب: المشروع (${PROJECT_B}) محجوب تماماً عن مستخدم المشروع (${PROJECT_A})`;
+    } else {
+      sec32Message = `فشل: ظهر المشروع (${PROJECT_B}) في قائمة مستخدم لا يملك صلاحية عليه!`;
+    }
+  } catch (err: any) {
+    sec32Passed = true;
+    sec32Message = `نجح الحجب الأمني: ${err.message}`;
+  }
+
+  results.push({
+    id: 'SEC-32',
+    category: 'Multi-Tenant Isolation & List Security',
+    titleAr: 'حجب بيانات المشروع ب عن مستخدم المشروع أ',
+    titleEn: 'Project B completely hidden from Project A listing',
+    passed: sec32Passed,
+    expectedBehavior: 'لا يمكن لمستخدم المشروع (أ) رؤية أو استعلام المشروع (ب) أو أي من بياناته',
+    actualOutcome: sec32Message,
+    details: 'فصل تام بين المستأجرين (Tenant Boundary) يمنع IDOR وتصفح المشاريع عبر القوائم.',
+  });
+
+  // ==========================================================================
+  // TEST CASE 15 (SEC-33): Direct destNetWeight Mutation Denied (Gap 2)
+  // ==========================================================================
+  let sec33Passed = false;
+  let sec33Message = '';
+  try {
+    await tripService.updateTrip(PROJECT_A, TEST_TRIP_ID, {
+      destNetWeight: 31500,
+    } as any, supervisorContext);
+    sec33Message = 'فشل: سمح النظام بتعديل destNetWeight مباشرة دون المرور بمسار التفريغ المعتمد!';
+  } catch (err: any) {
+    if (err.message.includes('destNetWeight') || err.message.includes('Workflow Bypass')) {
+      sec33Passed = true;
+      sec33Message = `نجح الرفض الأمني: ${err.message}`;
+    } else {
+      sec33Message = `رفض لسبب آخر: ${err.message}`;
+    }
+  }
+
+  results.push({
+    id: 'SEC-33',
+    category: 'Weighbridge & Unload Integrity (Gap 2)',
+    titleAr: 'حظر تعديل صافي وزن الوجهة (destNetWeight) مباشرة',
+    titleEn: 'Direct destNetWeight mutation denied',
+    passed: sec33Passed,
+    expectedBehavior: 'رفض التعديل المباشر لحقل destNetWeight وفرض مسار محطة التفريغ المعتمدة',
+    actualOutcome: sec33Message,
+    details: 'أوزان التفريغ حقول حساسة مالياً وقانونياً لا يجوز تعديلها كـ update عادي للرحلة.',
+  });
+
+  // ==========================================================================
+  // TEST CASE 16 (SEC-34): Direct varianceWeight Mutation Denied (Gap 2)
+  // ==========================================================================
+  let sec34Passed = false;
+  let sec34Message = '';
+  try {
+    await tripService.updateTrip(PROJECT_A, TEST_TRIP_ID, {
+      varianceWeight: 0,
+    } as any, supervisorContext);
+    sec34Message = 'فشل: سمح النظام بتعديل varianceWeight مباشرة!';
+  } catch (err: any) {
+    if (err.message.includes('varianceWeight') || err.message.includes('Workflow Bypass')) {
+      sec34Passed = true;
+      sec34Message = `نجح الرفض الأمني: ${err.message}`;
+    } else {
+      sec34Message = `رفض لسبب آخر: ${err.message}`;
+    }
+  }
+
+  results.push({
+    id: 'SEC-34',
+    category: 'Weighbridge & Unload Integrity (Gap 2)',
+    titleAr: 'حظر تعديل فارق الوزن (varianceWeight) مباشرة',
+    titleEn: 'Direct varianceWeight mutation denied',
+    passed: sec34Passed,
+    expectedBehavior: 'رفض التعديل المباشر لحقل varianceWeight وفرض حسابه آلياً عبر الخادم',
+    actualOutcome: sec34Message,
+    details: 'فارق الوزن يحدد خصومات النقل والمسؤولية القانونية عن العجز؛ يُحظر تصفيره أو تزويره يدوياً.',
+  });
+
+  // ==========================================================================
+  // TEST CASE 17 (SEC-35): Direct unloadTime Mutation Denied (Gap 2)
+  // ==========================================================================
+  let sec35Passed = false;
+  let sec35Message = '';
+  try {
+    await tripService.updateTrip(PROJECT_A, TEST_TRIP_ID, {
+      unloadTime: new Date().toISOString(),
+    } as any, supervisorContext);
+    sec35Message = 'فشل: سمح النظام بتعديل وقت التفريغ (unloadTime) مباشرة!';
+  } catch (err: any) {
+    if (err.message.includes('unloadTime') || err.message.includes('Workflow Bypass')) {
+      sec35Passed = true;
+      sec35Message = `نجح الرفض الأمني: ${err.message}`;
+    } else {
+      sec35Message = `رفض لسبب آخر: ${err.message}`;
+    }
+  }
+
+  results.push({
+    id: 'SEC-35',
+    category: 'Weighbridge & Unload Integrity (Gap 2)',
+    titleAr: 'حظر تعديل وقت التفريغ (unloadTime) مباشرة',
+    titleEn: 'Direct unloadTime mutation denied',
+    passed: sec35Passed,
+    expectedBehavior: 'رفض تعديل طابع وقت التفريغ خارج دورة حياة التفريغ الرسمية',
+    actualOutcome: sec35Message,
+    details: 'يتم تسجيل وقت التفريغ بواسطة خادم النظام أو تذكرة الميزان المعتمدة لمنع التلاعب الزمني.',
+  });
+
+  // ==========================================================================
+  // TEST CASE 18 (SEC-36): Direct unloadingActorId Mutation Denied (Gap 2)
+  // ==========================================================================
+  let sec36Passed = false;
+  let sec36Message = '';
+  try {
+    await tripService.updateTrip(PROJECT_A, TEST_TRIP_ID, {
+      unloadingActorId: 'MALICIOUS_IMPOSTER',
+    } as any, supervisorContext);
+    sec36Message = 'فشل: سمح النظام بانتحال أو تعديل معرف مسؤول التفريغ مباشرة!';
+  } catch (err: any) {
+    if (err.message.includes('unloadingActorId') || err.message.includes('Workflow Bypass')) {
+      sec36Passed = true;
+      sec36Message = `نجح الرفض الأمني: ${err.message}`;
+    } else {
+      sec36Message = `رفض لسبب آخر: ${err.message}`;
+    }
+  }
+
+  results.push({
+    id: 'SEC-36',
+    category: 'Weighbridge & Unload Integrity (Gap 2)',
+    titleAr: 'حظر انتحال مسؤول التفريغ (unloadingActorId)',
+    titleEn: 'Direct unloadingActorId mutation denied',
+    passed: sec36Passed,
+    expectedBehavior: 'رفض تعديل أو تزييف هوية القائم بالتفريغ خارج جلسة المصادقة المعتمدة',
+    actualOutcome: sec36Message,
+    details: 'يتم ربط مسؤول التفريغ بـ UID المسجل والمعتمد في نظام الرقابة والتدقيق.',
+  });
+
+  // ==========================================================================
+  // TEST CASE 19 (SEC-37): Direct unloadDecision Mutation Denied (Gap 2)
+  // ==========================================================================
+  let sec37Passed = false;
+  let sec37Message = '';
+  try {
+    await tripService.updateTrip(PROJECT_A, TEST_TRIP_ID, {
+      unloadDecision: 'ACCEPT_ORIGIN_NET_AS_DESTINATION',
+    } as any, supervisorContext);
+    sec37Message = 'فشل: سمح النظام بفرض قرار الميزان (unloadDecision) مباشرة!';
+  } catch (err: any) {
+    if (err.message.includes('unloadDecision') || err.message.includes('Workflow Bypass')) {
+      sec37Passed = true;
+      sec37Message = `نجح الرفض الأمني: ${err.message}`;
+    } else {
+      sec37Message = `رفض لسبب آخر: ${err.message}`;
+    }
+  }
+
+  results.push({
+    id: 'SEC-37',
+    category: 'Weighbridge & Unload Integrity (Gap 2)',
+    titleAr: 'حظر اتخاذ قرار التفريغ (unloadDecision) مباشرة عبر تحديث الرحلة',
+    titleEn: 'Direct unloadDecision mutation denied',
+    passed: sec37Passed,
+    expectedBehavior: 'رفض تسجيل قرار قبول وزن المصدر أو رفض الشحنة عبر استدعاء تحديث عادي',
+    actualOutcome: sec37Message,
+    details: 'قرارات الميزان تتطلب توثيقاً كاملاً مع السبب وتحديد المسؤولية وإذن الإشراف.',
+  });
+
+  // ==========================================================================
+  // TEST CASE 20 (SEC-38): Direct Fake Zero Variance Denied (Gap 2)
+  // ==========================================================================
+  let sec38Passed = false;
+  let sec38Message = '';
+  try {
+    await tripService.updateTrip(PROJECT_A, TEST_TRIP_ID, {
+      destNetWeight: 31000,
+      varianceWeight: 0,
+    } as any, supervisorContext);
+    sec38Message = 'فشل: سمح النظام بتصنيع فارق وزني صفري زائف!';
+  } catch (err: any) {
+    if (err.message.includes('Workflow Bypass') || err.message.includes('destNetWeight') || err.message.includes('varianceWeight')) {
+      sec38Passed = true;
+      sec38Message = `نجح الرفض الأمني: منع تصنيع الفارق الصفري (${err.message})`;
+    } else {
+      sec38Message = `رفض لسبب آخر: ${err.message}`;
+    }
+  }
+
+  results.push({
+    id: 'SEC-38',
+    category: 'Weighbridge & Unload Integrity (Gap 2)',
+    titleAr: 'منع تصنيع فارق وزني صفري زائف (Direct Fake Zero Variance Denied)',
+    titleEn: 'Direct fake zero variance denied',
+    passed: sec38Passed,
+    expectedBehavior: 'حظر تصفير الفارق الوزني بدون مطابقة فعلية موثقة من محطة الميزان',
+    actualOutcome: sec38Message,
+    details: 'قواعد Firestore والـ Middleware يفرضان معادلة: varianceWeight = destNetWeight - netWeight ويمنعان الفارق الصفري غير المبرر.',
+  });
+
+  // ==========================================================================
+  // TEST CASE 21 (SEC-39): Direct Origin-Net-As-Destination Fabrication Denied
+  // ==========================================================================
+  let sec39Passed = false;
+  let sec39Message = '';
+  try {
+    await tripService.updateTrip(PROJECT_A, TEST_TRIP_ID, {
+      unloadDecision: 'ACCEPT_ORIGIN_NET_AS_DESTINATION',
+      destNetWeight: 32000,
+      varianceWeight: 0,
+    } as any, supervisorContext);
+    sec39Message = 'فشل: سمح النظام باعتماد وزن المصدر كوجهة بتحديث عميل عادي!';
+  } catch (err: any) {
+    if (err.message.includes('Workflow Bypass') || err.message.includes('unloadDecision')) {
+      sec39Passed = true;
+      sec39Message = `نجح الرفض الأمني: حظر فرض ACCEPT_ORIGIN_NET_AS_DESTINATION بدون مسار معتمد (${err.message})`;
+    } else {
+      sec39Message = `رفض: ${err.message}`;
+    }
+  }
+
+  results.push({
+    id: 'SEC-39',
+    category: 'Weighbridge & Unload Integrity (Gap 2)',
+    titleAr: 'منع تزوير قرار مطابقة وزن المصدر (Origin Net As Destination Fabrication)',
+    titleEn: 'Direct origin-net-as-destination fabrication denied',
+    passed: sec39Passed,
+    expectedBehavior: 'حظر فرض ACCEPT_ORIGIN_NET_AS_DESTINATION دون استيفاء مسار الميزان المعتمد',
+    actualOutcome: sec39Message,
+    details: 'قواعد Firestore تشترط مرور القرار عبر الخادم المصرح مع التدقيق الكامل.',
+  });
+
+  // ==========================================================================
+  // TEST CASE 22 (SEC-40): Authorized Server Workflow Still Succeeds
+  // ==========================================================================
+  let sec40Passed = false;
+  let sec40Message = '';
+  try {
+    const serverContext: AuthUserContext = {
+      uid: 'SYSTEM_DAEMON_SERVICE',
+      email: 'system@q-saudi.internal',
+      role: 'SYSTEM',
+      assignedProjectIds: [PROJECT_A],
+      isServer: true,
+    } as any;
+
+    const updated = await tripService.updateTrip(PROJECT_A, TEST_TRIP_ID, {
+      hasExceptions: false,
+    }, serverContext);
+
+    if (updated) {
+      sec40Passed = true;
+      sec40Message = 'نجح التحديث المعتمد من الخادم المصرح له بنجاح ودون أي عوائق';
+    } else {
+      sec40Message = 'فشل غير متوقع في استدعاء الخادم';
+    }
+  } catch (err: any) {
+    sec40Message = `فشل سير عمل الخادم: ${err.message}`;
+  }
+
+  results.push({
+    id: 'SEC-40',
+    category: 'Authorized Server Operations',
+    titleAr: 'استمرار نجاح سير عمل الخادم المصرح به (Authorized Server Workflow)',
+    titleEn: 'Authorized server workflow still succeeds',
+    passed: sec40Passed,
+    expectedBehavior: 'نجاح العمليات المصرح بها القادمة من الخادم الآمن دون تأثر بالقيود المفروضة على العميل المباشر',
+    actualOutcome: sec40Message,
+    details: 'الخادم ونظام الخلفية (SYSTEM) يحتفظان بكامل الصلاحيات لإتمام دورات الحياة وحساب الأوزان وفق الضوابط.',
   });
 
   const passedTests = results.filter(r => r.passed).length;

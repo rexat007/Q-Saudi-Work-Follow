@@ -153,7 +153,11 @@ export function authenticateUser(req: Request, res: Response, next: NextFunction
  */
 export function enforceProjectIsolation(req: Request, res: Response, next: NextFunction) {
   const user: AuthenticatedUser = (req as any).user;
-  const requestedProjectId = req.params.projectId || req.body.projectId || req.query.projectId;
+  const requestedProjectId = 
+    req.params.projectId || 
+    req.body.projectId || 
+    req.body.project?.projectId || 
+    req.query.projectId;
 
   if (!requestedProjectId) {
     return next();
@@ -176,6 +180,39 @@ export function enforceProjectIsolation(req: Request, res: Response, next: NextF
 
   next();
 }
+
+/**
+ * Role-Based Access Control (RBAC) Middleware Factory
+ * Enforces that authenticated user possesses one of the allowed roles.
+ */
+export function enforceRole(allowedRoles: AuthenticatedUser['role'][]) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const user: AuthenticatedUser = (req as any).user;
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: 'رفض أمني: يتطلب هذا الإجراء تسجيل الدخول والمصادقة.',
+        code: 'UNAUTHORIZED_ACCESS',
+      });
+    }
+
+    if (user.role === 'SUPER_ADMIN' || allowedRoles.includes(user.role)) {
+      return next();
+    }
+
+    return res.status(403).json({
+      success: false,
+      error: `رفض أمني (RBAC Violation): دور المستخدم الحالي (${user.role}) غير مخول لتنفيذ هذه العملية الحساسة. الأدوار المصرح بها: [${allowedRoles.join(', ')}].`,
+      code: 'FORBIDDEN_ROLE_ACCESS',
+      requiredRoles: allowedRoles,
+      userRole: user.role,
+    });
+  };
+}
+
+export const enforceAdminOnly = enforceRole(['PROJECT_ADMIN', 'SUPER_ADMIN']);
+export const enforceAuditorOrAdmin = enforceRole(['PROJECT_ADMIN', 'SUPER_ADMIN', 'FINANCE_AUDITOR']);
+export const enforceDispatcherOrAbove = enforceRole(['PROJECT_ADMIN', 'SUPER_ADMIN', 'DISPATCHER', 'SUPERVISOR', 'SITE_SUPERVISOR']);
 
 /**
  * 3. Supervisor Trip Mutation Restrictions Middleware
@@ -470,3 +507,52 @@ export function enforceFileUploadSecurity(req: Request, res: Response, next: Nex
 
   next();
 }
+
+/**
+ * 8. Weighbridge Unload & Variance Tampering Prevention Middleware
+ * Prohibits directly fabricating destination net weight, zeroing out variance,
+ * or bypassing the authorized unloading workflow.
+ */
+export function enforceWeighbridgeUnloadIntegrity(req: Request, res: Response, next: NextFunction) {
+  const updates = req.body;
+  if (!updates) return next();
+
+  // 1. Check legacy weights object
+  if (updates.weights && updates.weights.destinationNetKg !== undefined) {
+    if (updates.weights.varianceKg === 0 && !updates.unloadingDataSource && !updates.sourceMetadata?.weighbridgeTicketNo) {
+      return res.status(400).json({
+        success: false,
+        error: 'رفض أمني (Weighbridge Integrity Violation): يُحظر تصفير الفارق الوزني أو مطابقة وزن التفريغ تلقائياً بدون تذكرة ميزان موثقة ومصدر تفريغ معتمد.',
+        code: 'UNVERIFIED_UNLOAD_WEIGHT_FABRICATION',
+      });
+    }
+  }
+
+  // 2. Direct Trip Fields: destNetWeight / varianceWeight / unloadDecision tampering
+  const hasDestNet = updates.destNetWeight !== undefined;
+  const hasVariance = updates.varianceWeight !== undefined;
+  const hasDecision = updates.unloadDecision !== undefined;
+
+  // Direct fabrication of ACCEPT_ORIGIN_NET_AS_DESTINATION without weighbridge source
+  if (updates.unloadDecision === 'ACCEPT_ORIGIN_NET_AS_DESTINATION') {
+    if (!updates.unloadingDataSource && !req.headers['x-weighbridge-station-id']) {
+      return res.status(400).json({
+        success: false,
+        error: 'رفض أمني: اعتماد وزن المصدر كوجهة (ACCEPT_ORIGIN_NET_AS_DESTINATION) يتطلب محطة تفريغ معتمدة أو إجراء ميزان موثق.',
+        code: 'UNAUTHORIZED_ORIGIN_ACCEPTANCE',
+      });
+    }
+  }
+
+  // Reject direct zero variance fabrication without weighbridge ticket or authorized station
+  if (hasDestNet && hasVariance && updates.varianceWeight === 0 && !updates.unloadingDataSource) {
+    return res.status(400).json({
+      success: false,
+      error: 'رفض أمني: لا يمكن تصفير الفارق الوزني تلقائياً عبر التحديث المباشر دون توثيق مصدر التفريغ.',
+      code: 'DIRECT_ZERO_VARIANCE_FORBIDDEN',
+    });
+  }
+
+  next();
+}
+

@@ -72,12 +72,17 @@ export class PricingRuleService {
         pricingRuleId,
         projectId,
         carrierId: 'CAR-ALMAJDOUIE',
+        materialId: 'MAT-AGG-01',
         baseRateSAR: 75,
+        rate: 75,
         version: 1,
         status: 'ACTIVE',
         isActive: true,
         pricingModel: 'PER_TON',
         pricingType: 'PER_TON',
+        effectiveFrom: '2026-01-01',
+        effectiveTo: '2026-12-31',
+        currency: 'SAR',
       } as any;
     }
 
