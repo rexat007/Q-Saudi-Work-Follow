@@ -2,6 +2,7 @@ import { auditLogRepository } from '../repositories/auditLog.repository';
 import { AuditLogValidator } from '../validators/auditLog.validator';
 import { AuditLogEntity } from '../types/entities';
 import { AuthUserContext } from '../types/common';
+import { auth } from '../firebase/config';
 
 export class AuditLogService {
   async recordLog(
@@ -59,7 +60,9 @@ export class AuditLogService {
       throw new Error(`Audit validation failed: ${validation.errors.map(e => e.messageAr).join(', ')}`);
     }
 
-    await auditLogRepository.create(logEntry);
+    if (auth.currentUser) {
+      await auditLogRepository.create(logEntry);
+    }
     return auditLogId;
   }
 

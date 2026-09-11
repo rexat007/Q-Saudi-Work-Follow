@@ -54,7 +54,7 @@ import { conflictResolutionService } from './services/offline/conflictResolution
 import { Wifi, Inbox } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'SECURITY_AUDIT' | 'LEGACY_MIGRATION' | 'ADMIN_CONSOLE' | 'OPERATIONS_DASHBOARD' | 'REPORTS_ENGINE' | 'TRIP_ENGINE' | 'WORKSPACE_INTEGRATION' | 'EXCEPTION_ENGINE' | 'IMPORT_CENTER' | 'DATA_QUALITY' | 'MASTER_DATA' | 'PRICING_ENGINE' | 'WIZARD' | 'FIRESTORE_ARCH' | 'RELATIONS' | 'PRINCIPLES' | 'DOCS'>('SECURITY_AUDIT');
+  const [activeTab, setActiveTab] = useState<'OPERATIONS_DASHBOARD' | 'LEGACY_MIGRATION' | 'ADMIN_CONSOLE' | 'SECURITY_AUDIT' | 'REPORTS_ENGINE' | 'TRIP_ENGINE' | 'WORKSPACE_INTEGRATION' | 'EXCEPTION_ENGINE' | 'IMPORT_CENTER' | 'DATA_QUALITY' | 'MASTER_DATA' | 'PRICING_ENGINE' | 'WIZARD' | 'FIRESTORE_ARCH' | 'RELATIONS' | 'PRINCIPLES' | 'DOCS'>('OPERATIONS_DASHBOARD');
   const [selectedEntityId, setSelectedEntityId] = useState<string>('Trip');
   const [selectedDocId, setSelectedDocId] = useState<string>('architecture');
   const [searchQuery, setSearchQuery] = useState<string>('');

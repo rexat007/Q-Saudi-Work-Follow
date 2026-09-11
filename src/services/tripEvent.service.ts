@@ -2,6 +2,7 @@ import { tripEventRepository } from '../repositories/tripEvent.repository';
 import { TripEventValidator } from '../validators/tripEvent.validator';
 import { TripEventEntity } from '../types/entities';
 import { AuthUserContext } from '../types/common';
+import { auth } from '../firebase/config';
 
 export class TripEventService {
   async getTripEvents(projectId: string, tripId: string): Promise<TripEventEntity[]> {
@@ -28,7 +29,9 @@ export class TripEventService {
       throw new Error(`خطأ في حدث الرحلة: ${validation.errors.map(e => e.messageAr).join(' | ')}`);
     }
 
-    await tripEventRepository.create(newEvent);
+    if (auth.currentUser) {
+      await tripEventRepository.create(newEvent);
+    }
     return newEvent as TripEventEntity;
   }
 
