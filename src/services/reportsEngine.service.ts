@@ -27,6 +27,7 @@ import {
 } from '../types/reports';
 import { tripEngineService } from './tripEngine.service';
 import { exceptionEngine } from './exceptionEngine.service';
+import { pricingService } from './pricing.service';
 import { DEFAULT_PROJECTS, DEFAULT_CARRIERS, DEFAULT_MATERIALS, DEFAULT_TRUCKS, DEFAULT_DRIVERS } from '../data/defaultMasterData';
 
 export class ReportsEngineService {
@@ -135,44 +136,107 @@ export class ReportsEngineService {
    * Computes adjustments and exception deductions for a single trip.
    * Strict Rule: uses `settlementAmount` from trip snapshot for gross,
    * then applies demurrage / deductions for net amount.
+   * 
+   * BLOCK 36 MANDATES:
+   * 1. If pricing is pending (isPending = true or UNRESOLVED_PENDING):
+   *    settlementAmount = 0 is treated strictly as PENDING, NOT a finalized zero settlement.
+   * 2. Demurrage rate: NO hardcoded values (no 150 SAR or any fallback).
+   *    Must come strictly from contractual pricing rule or trip pricing snapshot.
+   *    If missing, marked as DEMURRAGE_PENDING without guesswork.
    */
   public computeTripFinancialBreakdown(trip: TripRecord) {
+    const isPending = Boolean(
+      trip.pricingSnapshot?.isPending === true ||
+      trip.pricingSnapshot?.pricingRuleId === 'UNRESOLVED_PENDING' ||
+      (trip as any).pricingStatus === 'PENDING' ||
+      (trip as any).pricingStatus === 'UNRESOLVED_PENDING' ||
+      trip.pricingRuleId === 'UNRESOLVED_PENDING' ||
+      (!trip.pricingSnapshot && (trip.settlementAmount === 0 || !trip.pricingRuleId) && (trip.agreedRate === 0 || !trip.agreedRate))
+    );
+
     // Contractual Snapshot Invariance: authoritative gross amount is settlementAmount saved in trip
-    const gross = trip.pricingSnapshot?.settlementAmount ?? trip.settlementAmount ?? 0;
+    const rawGross = trip.pricingSnapshot?.settlementAmount ?? trip.settlementAmount ?? 0;
+    const gross = isPending ? 0 : rawGross;
 
     let adjustments = 0;
     let exceptionDeductions = 0;
+    let demurrageStatus: 'RESOLVED' | 'DEMURRAGE_PENDING' | 'NOT_APPLICABLE' = 'NOT_APPLICABLE';
+    let demurrageAmount = 0;
 
-    // 1. If trip was returned or cancelled, settlement is 0 or negative penalty
-    if (trip.status === 'RETURNED' || trip.status === 'CANCELLED') {
-      // Returned trips have full deduction of gross
-      exceptionDeductions = gross;
-    } 
-    // 2. Weight variance out-of-tolerance deduction
-    else if (trip.varianceWeight && trip.varianceWeight < -500) {
-      // Unallowable shrinkage: deduct rate for excessive shrinkage weight
-      const excessShrinkageTons = Math.abs(trip.varianceWeight + 500) / 1000;
-      const deduction = excessShrinkageTons * (trip.agreedRate || 50);
-      exceptionDeductions += Math.round(deduction * 100) / 100;
+    if (!isPending) {
+      // 1. If trip was returned or cancelled, settlement is 0 or negative penalty
+      if (trip.status === 'RETURNED' || trip.status === 'CANCELLED') {
+        // Returned trips have full deduction of gross
+        exceptionDeductions = gross;
+      } 
+      // 2. Weight variance out-of-tolerance deduction
+      else if (trip.varianceWeight && trip.varianceWeight < -500) {
+        // Unallowable shrinkage: deduct rate for excessive shrinkage weight
+        const agreedRate = trip.pricingSnapshot?.agreedRate ?? trip.agreedRate ?? 0;
+        const excessShrinkageTons = Math.abs(trip.varianceWeight + 500) / 1000;
+        const deduction = excessShrinkageTons * agreedRate;
+        exceptionDeductions += Math.round(deduction * 100) / 100;
+      }
+
+      // 3. Demurrage calculation (Strict No-Guesswork Rule)
+      const hasDemurrageClaim = Boolean(
+        (trip.notes && trip.notes.includes('بدل انتظار')) ||
+        (trip.pricingSnapshot?.waitingDurationHours && trip.pricingSnapshot.waitingDurationHours > 0) ||
+        ((trip as any).waitingDurationHours && (trip as any).waitingDurationHours > 0)
+      );
+
+      if (hasDemurrageClaim) {
+        // Check if snapshot already holds a locked-in historical demurrage amount
+        if (trip.pricingSnapshot?.demurrageAmountSAR !== undefined) {
+          demurrageAmount = trip.pricingSnapshot.demurrageAmountSAR;
+          demurrageStatus = 'RESOLVED';
+          adjustments += demurrageAmount;
+        } else {
+          // Look up contractual rate from snapshot, trip entity, or registered pricing rule
+          const contractualRate = 
+            trip.pricingSnapshot?.demurrageRatePerHourSAR ??
+            (trip as any).demurrageRatePerHourSAR ??
+            pricingService.getPricingRule(trip.pricingRuleId)?.demurrageRatePerHourSAR;
+
+          const billableHours = 
+            trip.pricingSnapshot?.waitingDurationHours ??
+            (trip as any).waitingDurationHours ??
+            1;
+
+          if (contractualRate !== undefined && contractualRate > 0) {
+            demurrageAmount = Math.round(contractualRate * billableHours * 100) / 100;
+            demurrageStatus = 'RESOLVED';
+            adjustments += demurrageAmount;
+          } else {
+            // NO GUESSING! Must NOT use 150 SAR or any fallback.
+            // Demurrage remains pending contractual tariff resolution.
+            demurrageStatus = 'DEMURRAGE_PENDING';
+            demurrageAmount = 0;
+          }
+        }
+      }
     }
 
-    // 3. Demurrage bonus or operational adjustments
-    if (trip.notes && trip.notes.includes('بدل انتظار')) {
-      adjustments += 150; // Approved demurrage compensation
-    }
-
-    const net = Math.max(0, gross + adjustments - exceptionDeductions);
+    const net = isPending ? 0 : Math.max(0, gross + adjustments - exceptionDeductions);
 
     return {
       grossAmount: Math.round(gross * 100) / 100,
       adjustments: Math.round(adjustments * 100) / 100,
       exceptions: Math.round(exceptionDeductions * 100) / 100,
       netAmount: Math.round(net * 100) / 100,
+      isPending,
+      pendingReason: isPending 
+        ? (trip.pricingSnapshot?.pendingReason || 'التسعير معلق — بانتظار استكمال أو اعتماد عقد الناقل قبل التسوية النهائية')
+        : undefined,
+      pricingStatusLabelAr: isPending ? 'معلق التسوية (Pending Settlement)' : 'تسوية معتمدة (Finalized)',
+      demurrageStatus,
+      demurrageAmount: Math.round(demurrageAmount * 100) / 100,
     };
   }
 
   /**
    * Aggregates financial and operational summary from filtered trips.
+   * Strictly isolates pending settlement trips from finalized financial totals.
    */
   public calculateSummary(trips: TripRecord[]): ReportFinancialSummary {
     let gross = 0;
@@ -183,13 +247,20 @@ export class ReportsEngineService {
     let completedCount = 0;
     let returnedCount = 0;
     let exceptionTripsCount = 0;
+    let pricedTrips = 0;
+    let pendingSettlementTrips = 0;
 
     for (const t of trips) {
       const breakdown = this.computeTripFinancialBreakdown(t);
-      gross += breakdown.grossAmount;
-      adjustments += breakdown.adjustments;
-      exceptions += breakdown.exceptions;
-      net += breakdown.netAmount;
+      if (breakdown.isPending) {
+        pendingSettlementTrips++;
+      } else {
+        pricedTrips++;
+        gross += breakdown.grossAmount;
+        adjustments += breakdown.adjustments;
+        exceptions += breakdown.exceptions;
+        net += breakdown.netAmount;
+      }
 
       totalKg += t.netWeight || 0;
       if (t.status === 'COMPLETED') completedCount++;
@@ -197,17 +268,24 @@ export class ReportsEngineService {
       if (t.status === 'EXCEPTION' || t.hasExceptions) exceptionTripsCount++;
     }
 
+    const finalSettlementAmount = Math.round(net * 100) / 100;
+
     return {
       grossAmountSAR: Math.round(gross * 100) / 100,
       adjustmentsSAR: Math.round(adjustments * 100) / 100,
       exceptionsSAR: Math.round(exceptions * 100) / 100,
-      netAmountSAR: Math.round(net * 100) / 100,
+      netAmountSAR: finalSettlementAmount,
       totalTrips: trips.length,
       totalNetWeightKg: totalKg,
       totalNetWeightTons: Math.round((totalKg / 1000) * 100) / 100,
       completedTripsCount: completedCount,
       exceptionsCount: exceptionTripsCount,
       returnedTripsCount: returnedCount,
+
+      pricedTrips,
+      pendingSettlementTrips,
+      finalSettlementAmount,
+      pendingSettlementAmount: 0,
     };
   }
 
@@ -756,6 +834,8 @@ export class ReportsEngineService {
         carrierName: labels.carrierName,
         carrierId,
         totalTrips: carrierTrips.length,
+        pricedTrips: grpSummary.pricedTrips,
+        pendingTrips: grpSummary.pendingSettlementTrips,
         pricingSplit: `${perTonCount} طن / ${perTripCount} رد`,
         totalTons: grpSummary.totalNetWeightTons,
         grossAmount: grpSummary.grossAmountSAR,
@@ -770,6 +850,7 @@ export class ReportsEngineService {
     const columns: ReportColumnDef[] = [
       { key: 'carrierName', labelAr: 'اسم الناقل اللوجستي', labelEn: 'Carrier Name', format: 'text', align: 'right' },
       { key: 'totalTrips', labelAr: 'إجمالي الرحلات', labelEn: 'Trips', format: 'number', align: 'center' },
+      { key: 'pendingTrips', labelAr: 'معلقة التسعير (Pending)', labelEn: 'Pending Trips', format: 'number', align: 'center' },
       { key: 'pricingSplit', labelAr: 'توزيع النماذج', labelEn: 'Pricing Models', format: 'text', align: 'center' },
       { key: 'totalTons', labelAr: 'إجمالي الأطنان', labelEn: 'Tons', format: 'number', align: 'left' },
       { key: 'grossAmount', labelAr: 'المبلغ الإجمالي (Gross)', labelEn: 'Gross SAR', format: 'currency', align: 'left' },
@@ -926,9 +1007,11 @@ export class ReportsEngineService {
     const rows = filtered.map(t => {
       const labels = this.getEntityLabels(t);
       const breakdown = this.computeTripFinancialBreakdown(t);
-      const rate = t.agreedRate || 1400;
+      const rate = breakdown.isPending ? 0 : (t.pricingSnapshot?.agreedRate ?? t.agreedRate ?? 0);
       const tripsCount = 1;
-      const formulaCheck = `1 × ${rate.toLocaleString()} = ${(tripsCount * rate).toLocaleString()}`;
+      const formulaCheck = breakdown.isPending 
+        ? 'معلق — بانتظار اعتماد عقد التسعير' 
+        : `1 × ${rate.toLocaleString()} = ${(tripsCount * rate).toLocaleString()}`;
 
       return {
         tripSerial: t.tripSerial,
@@ -937,6 +1020,7 @@ export class ReportsEngineService {
         carrierName: labels.carrierName,
         truckPlate: labels.truckPlate,
         materialName: labels.materialName,
+        settlementStatus: breakdown.pricingStatusLabelAr,
         agreedRate: rate,
         tripsCount,
         formulaCheck,
@@ -955,6 +1039,7 @@ export class ReportsEngineService {
       { key: 'carrierName', labelAr: 'الناقل', labelEn: 'Carrier', format: 'text', align: 'right' },
       { key: 'truckPlate', labelAr: 'الشاحنة', labelEn: 'Truck', format: 'text', align: 'center' },
       { key: 'materialName', labelAr: 'المادة', labelEn: 'Material', format: 'text', align: 'right' },
+      { key: 'settlementStatus', labelAr: 'حالة التسوية', labelEn: 'Settlement Status', format: 'badge', align: 'center' },
       { key: 'agreedRate', labelAr: 'سعر الرد المقطوع (SAR)', labelEn: 'Rate/Trip', format: 'currency', align: 'left' },
       { key: 'formulaCheck', labelAr: 'مطابقة المعادلة (عدد × سعر)', labelEn: 'Formula Verification', format: 'text', align: 'center' },
       { key: 'grossAmount', labelAr: 'الإجمالي (Gross)', labelEn: 'Gross SAR', format: 'currency', align: 'left' },
@@ -974,7 +1059,7 @@ export class ReportsEngineService {
       summary,
       columns,
       rows,
-      notes: 'قاعدة الحساب الصارمة: المبلغ = عدد الرحلات × سعر الرحلة.',
+      notes: 'قاعدة الحساب الصارمة: المبلغ = عدد الرحلات × سعر الرحلة. تعزل الرحلات معلقة التسعير من صافي المستحق النهائي.',
     };
   }
 
@@ -990,8 +1075,10 @@ export class ReportsEngineService {
       const labels = this.getEntityLabels(t);
       const breakdown = this.computeTripFinancialBreakdown(t);
       const netTons = (t.netWeight || 0) / 1000;
-      const rate = t.agreedRate || 48.5;
-      const formulaCheck = `${netTons.toFixed(2)} طن × ${rate} = ${(netTons * rate).toFixed(2)}`;
+      const rate = breakdown.isPending ? 0 : (t.pricingSnapshot?.agreedRate ?? t.agreedRate ?? 0);
+      const formulaCheck = breakdown.isPending
+        ? 'معلق — بانتظار اعتماد عقد التسعير'
+        : `${netTons.toFixed(2)} طن × ${rate} = ${(netTons * rate).toFixed(2)}`;
 
       return {
         tripSerial: t.tripSerial,
@@ -1002,6 +1089,7 @@ export class ReportsEngineService {
         materialName: labels.materialName,
         netWeightKg: (t.netWeight || 0).toLocaleString(),
         netTons: netTons.toFixed(2),
+        settlementStatus: breakdown.pricingStatusLabelAr,
         agreedRate: rate,
         formulaCheck,
         grossAmount: breakdown.grossAmount,
@@ -1019,6 +1107,7 @@ export class ReportsEngineService {
       { key: 'carrierName', labelAr: 'الناقل', labelEn: 'Carrier', format: 'text', align: 'right' },
       { key: 'truckPlate', labelAr: 'الشاحنة', labelEn: 'Truck', format: 'text', align: 'center' },
       { key: 'netTons', labelAr: 'صافي الوزن (طن)', labelEn: 'Net Tons', format: 'number', align: 'left' },
+      { key: 'settlementStatus', labelAr: 'حالة التسوية', labelEn: 'Settlement Status', format: 'badge', align: 'center' },
       { key: 'agreedRate', labelAr: 'سعر الطن المتفق (SAR)', labelEn: 'Rate/Ton', format: 'currency', align: 'left' },
       { key: 'formulaCheck', labelAr: 'مطابقة المعادلة (أطنان × سعر)', labelEn: 'Formula Verification', format: 'text', align: 'center' },
       { key: 'grossAmount', labelAr: 'الإجمالي (Gross)', labelEn: 'Gross SAR', format: 'currency', align: 'left' },
@@ -1038,7 +1127,7 @@ export class ReportsEngineService {
       summary,
       columns,
       rows,
-      notes: 'قاعدة الحساب الصارمة: المبلغ = مجموع صافي الأطنان × سعر الطن.',
+      notes: 'قاعدة الحساب الصارمة: المبلغ = مجموع صافي الأطنان × سعر الطن. تعزل الرحلات معلقة التسعير من صافي المستحق النهائي.',
     };
   }
 

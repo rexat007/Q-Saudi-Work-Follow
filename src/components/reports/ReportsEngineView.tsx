@@ -528,7 +528,12 @@ export const ReportsEngineView: React.FC = () => {
           <div className="text-xl font-black text-stone-900 mt-1 font-mono">
             {currentDataset.summary.totalTrips}
           </div>
-          <div className="text-[10px] text-stone-400 mt-0.5">{currentDataset.summary.completedTripsCount} مكتملة • {currentDataset.summary.returnedTripsCount} مرتجعة</div>
+          <div className="text-[10px] text-stone-400 mt-0.5">
+            {currentDataset.summary.pricedTrips ?? currentDataset.summary.totalTrips} معتمدة
+            {currentDataset.summary.pendingSettlementTrips ? (
+              <span className="text-amber-700 font-bold mr-1">• {currentDataset.summary.pendingSettlementTrips} معلقة</span>
+            ) : ''}
+          </div>
         </div>
 
         {/* Total Metric Tons */}
@@ -541,6 +546,24 @@ export const ReportsEngineView: React.FC = () => {
         </div>
 
       </div>
+
+      {/* 3.1 Pending Settlement Isolation Banner */}
+      {currentDataset.summary.pendingSettlementTrips > 0 && (
+        <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-start sm:items-center gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+            <div>
+              <div className="text-xs font-bold">عزل الرحلات معلقة التسعير (Pending Settlement Isolation):</div>
+              <div className="text-[11px] text-amber-900 mt-0.5 leading-relaxed">
+                يوجد <strong className="font-mono">{currentDataset.summary.pendingSettlementTrips}</strong> رحلة مسجلة تشغيلياً دون تعتيم ولكن تسعيرها معلق بانتظار اعتماد العقد. تم عزلها بالكامل من صافي المستحق النهائي (0.00 ر.س لا تعني سعراً نهائياً).
+              </div>
+            </div>
+          </div>
+          <div className="shrink-0 bg-amber-200/70 border border-amber-300 text-amber-950 text-xs px-3 py-1.5 rounded-xl font-bold font-mono">
+            التسوية النهائية المعتمدة: {currentDataset.summary.finalSettlementAmount.toLocaleString()} ر.س
+          </div>
+        </div>
+      )}
 
       {/* 4. Active Report Title & Actions Toolbar */}
       <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-xs space-y-4">

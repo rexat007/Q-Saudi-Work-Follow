@@ -287,10 +287,10 @@ export class OutboxService {
       // If the trip was created offline with a valid Pricing Snapshot, do NOT alter the trip price later due to server price updates.
       // The new server price applies strictly to future trips.
       const snapshot = p.pricingSnapshot;
-      const agreedRate = snapshot?.agreedRate !== undefined ? snapshot.agreedRate : (p.agreedRate || 8.5);
+      const agreedRate = snapshot?.agreedRate !== undefined ? snapshot.agreedRate : (p.agreedRate ?? 0);
       const pricingType = snapshot?.pricingType || p.pricingType || 'PER_TON';
-      const pricingRuleId = snapshot?.pricingRuleId || p.pricingRuleId || 'PRC-AGG-TON-01';
-      const ruleName = snapshot?.ruleName || 'تسعيرة وثيقة التحميل المحمية';
+      const pricingRuleId = snapshot?.pricingRuleId || p.pricingRuleId || 'UNRESOLVED_PENDING';
+      const ruleName = snapshot?.ruleName || 'تسعيرة وثيقة التحميل';
 
       const calculatedNet = p.grossWeight - p.tareWeight;
       const netTons = parseFloat((calculatedNet / 1000).toFixed(3));

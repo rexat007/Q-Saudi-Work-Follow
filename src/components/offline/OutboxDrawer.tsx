@@ -489,16 +489,36 @@ export const OutboxDrawer: React.FC<OutboxDrawerProps> = ({
                             </span>
                           </div>
                           <div>
-                            <span className="text-stone-500 block text-[10px]">المبلغ المقدر:</span>
-                            <span className="font-bold text-amber-900">
-                              {op.payload?.settlementAmount !== undefined ? `${op.payload.settlementAmount.toLocaleString()} ر.س` : 'N/A'}
-                            </span>
+                            <span className="text-stone-500 block text-[10px]">المبلغ والتسوية:</span>
+                            {op.payload?.pricingSnapshot?.isPending || op.payload?.pricingStatus === 'PENDING' || op.payload?.pricingRuleId === 'UNRESOLVED_PENDING' ? (
+                              <span className="inline-flex items-center gap-1 font-bold text-amber-800 bg-amber-100/70 px-1.5 py-0.5 rounded text-[11px] border border-amber-300">
+                                <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                <span>معلق التسوية (Pending)</span>
+                              </span>
+                            ) : (
+                              <span className="font-bold text-amber-900">
+                                {op.payload?.settlementAmount !== undefined ? `${op.payload.settlementAmount.toLocaleString()} ر.س` : 'N/A'}
+                              </span>
+                            )}
                           </div>
                           <div>
                             <span className="text-stone-500 block text-[10px]">المحاولات:</span>
                             <span className="font-bold text-stone-900">{op.retryCount} محاولة</span>
                           </div>
                         </div>
+
+                        {/* Pending Pricing Alert */}
+                        {(op.payload?.pricingSnapshot?.isPending || op.payload?.pricingStatus === 'PENDING' || op.payload?.pricingRuleId === 'UNRESOLVED_PENDING') && (
+                          <div className="text-xs bg-amber-50 border border-amber-300 rounded-lg p-2.5 text-amber-950 flex items-start gap-2">
+                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                            <div>
+                              <div className="font-bold">تنبيه تسعير معلق (Pending Pricing Resolution):</div>
+                              <div className="text-[11px] text-amber-900 mt-0.5 leading-relaxed">
+                                تم تسجيل العملية تشغيلياً بنجاح في سجل الإرسال، ولكن التسوية المالية معلقة لعدم توفر قاعدة تسعير تعاقدية مطابقة. لن يتم احتساب تسوية نهائية لحين اعتماد العقد (لا يتم اعتماد 0.00 ر.س كسعر نهائي).
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Feedback / Error / ACK */}
                         {op.serverAck && (

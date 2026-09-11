@@ -98,7 +98,7 @@ export interface TransitionPayload {
 
 export interface TripPricingSnapshot {
   pricingRuleId: string;
-  pricingType: TripPricingType;
+  pricingType: TripPricingType | string;
   agreedRate: number;
   currency: string;
   settlementBase: number;
@@ -106,7 +106,14 @@ export interface TripPricingSnapshot {
   ruleName?: string;
   pricingSnapshotAt: string;
   effectiveFrom?: string;
-  effectiveTo?: string;
+  effectiveTo?: string | null;
+  isPending?: boolean;
+  pendingReason?: string;
+  demurrageRatePerHourSAR?: number;
+  freeTimeHours?: number;
+  waitingDurationHours?: number;
+  demurrageAmountSAR?: number;
+  demurrageStatus?: 'RESOLVED' | 'PENDING' | 'NOT_APPLICABLE';
 }
 
 export interface TripEntitySnapshot {

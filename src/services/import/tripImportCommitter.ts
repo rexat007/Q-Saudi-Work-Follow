@@ -24,6 +24,10 @@ import { CanonicalTripRow } from '../../types/excelCsvImport';
 import { UnifiedImportValidator } from '../../validators/unifiedImport.validator';
 import { tripRepository } from '../../repositories/trip.repository';
 import { auditLogService } from '../auditLog.service';
+import { pricingService } from '../pricing.service';
+import { pricingRuleRepository } from '../../repositories/pricingRule.repository';
+import { MASTER_PRICING_RULES } from '../../data/masterPricingRules';
+import { PricingRule, TripPricingSnapshot } from '../../types/pricing';
 
 export class ExcelCsvTripCommitter implements IImportCommitter {
   // Static cache for idempotency tracking
@@ -115,6 +119,52 @@ export class ExcelCsvTripCommitter implements IImportCommitter {
     const committedTripIds: string[] = [];
     const executionErrors: ImportIssue[] = [];
 
+    // BLOCK 36: Load project pricing rules for deterministic contractual settlement resolution
+    let projectRules: PricingRule[] = [];
+    try {
+      const rawRules = await pricingRuleRepository.listByProject(batch.projectId);
+      projectRules = rawRules.map((e: any) => ({
+        pricingRuleId: e.pricingRuleId,
+        projectId: e.projectId,
+        carrierId: e.carrierId || '',
+        materialId: e.materialId || null,
+        pricingType: (e.pricingModel === 'PER_TRIP' || e.pricingType === 'PER_TRIP') ? 'PER_TRIP' : 'PER_TON',
+        rate: e.rate !== undefined ? e.rate : (e.baseRateSAR !== undefined ? e.baseRateSAR : 0),
+        currency: e.currency || 'SAR',
+        settlementBase: e.settlementBase,
+        effectiveFrom: e.effectiveFrom || '2020-01-01',
+        effectiveTo: e.effectiveTo || null,
+        status: e.status || (e.isActive !== false ? 'ACTIVE' : 'INACTIVE'),
+        version: e.version || 1,
+        parentRuleId: e.parentRuleId,
+        createdAt: e.createdAt || new Date().toISOString(),
+        createdBy: e.createdBy || 'system',
+        updatedAt: e.updatedAt || new Date().toISOString(),
+        notes: e.notes,
+      }));
+    } catch {
+      projectRules = [];
+    }
+
+    if (projectRules.length === 0) {
+      projectRules = MASTER_PRICING_RULES.filter((r) => r.projectId === batch.projectId).map((r) => ({
+        pricingRuleId: r.pricingRuleId,
+        projectId: r.projectId,
+        carrierId: r.carrierId || 'CAR-ALMAJDOUIE',
+        materialId: r.materialId || null,
+        pricingType: r.pricingType,
+        rate: r.agreedRate,
+        currency: r.currency || 'SAR',
+        effectiveFrom: r.effectiveFrom,
+        effectiveTo: r.effectiveTo,
+        status: r.status,
+        version: 1,
+        createdAt: new Date().toISOString(),
+        createdBy: 'system',
+        updatedAt: new Date().toISOString(),
+      }));
+    }
+
     // 6. Build and persist Trip entities
     for (let i = 0; i < activeRows.length; i++) {
       const row = activeRows[i];
@@ -171,19 +221,131 @@ export class ExcelCsvTripCommitter implements IImportCommitter {
         ? context.userId
         : null;
 
-      // BLOCK 34 Rule 26: Never guess pricing if missing or ambiguous
-      const hasExplicitPricing = !!canonical.pricingRule;
-      const resolvedRate = hasExplicitPricing
-        ? (canonical.tripRate ?? 35)
-        : (canonical.tripRate ?? 0);
-      const pricingRuleId = hasExplicitPricing
-        ? canonical.pricingRule!
-        : 'UNRESOLVED_PENDING';
-      const pricingType = hasExplicitPricing ? 'PER_TON' : 'LEGACY_UNRESOLVED';
-      const netTons = (canonical.netWeight || 0) / 1000;
-      const baseAmountSAR = hasExplicitPricing ? netTons * resolvedRate : 0;
-      const vatAmountSAR = hasExplicitPricing ? baseAmountSAR * 0.15 : 0;
-      const totalAmountSAR = hasExplicitPricing ? baseAmountSAR + vatAmountSAR : 0;
+      // =========================================================================
+      // BLOCK 36: NO-GUESS PRICING & DETERMINISTIC CONTRACTUAL SETTLEMENT
+      // =========================================================================
+      
+      // 1. Date Source: Must use trip operational date, NOT import timestamp
+      const tripDate =
+        canonical.shiftDate ||
+        canonical.date ||
+        (canonical.weighTime ? canonical.weighTime.split('T')[0] : null) ||
+        (canonical.loadTime ? canonical.loadTime.split('T')[0] : null) ||
+        new Date().toISOString().split('T')[0];
+
+      // 2. Entity Resolution Check: Pricing cannot be final if carrier or material requires review
+      const carrierRes = row.entityResolutions?.carrier as any;
+      const materialRes = row.entityResolutions?.material as any;
+
+      const resolvedCarrierId =
+        canonical.carrierId ||
+        carrierRes?.matchedId ||
+        carrierRes?.entityId ||
+        carrierRes?.resolvedEntity?.carrierId ||
+        (canonical.carrier ? `CARRIER-${canonical.carrier}` : '');
+
+      const resolvedMaterialId =
+        canonical.materialId ||
+        materialRes?.matchedId ||
+        materialRes?.entityId ||
+        materialRes?.resolvedEntity?.materialId ||
+        (canonical.materialType ? `MAT-${canonical.materialType}` : null);
+
+      const carrierRequiresReview =
+        carrierRes?.recommendation === 'REVIEW' || carrierRes?.status === 'REQUIRES_REVIEW' || !resolvedCarrierId;
+      const materialRequiresReview =
+        materialRes?.recommendation === 'REVIEW' || materialRes?.status === 'REQUIRES_REVIEW';
+      const entityResolutionPending = carrierRequiresReview || materialRequiresReview;
+
+      // 3. Resolve Pricing Rule
+      let pricingResolution =
+        !entityResolutionPending && resolvedCarrierId
+          ? pricingService.resolvePricingRuleFromList(projectRules, {
+              projectId: batch.projectId,
+              carrierId: resolvedCarrierId,
+              materialId: resolvedMaterialId,
+              tripDate,
+            })
+          : null;
+
+      // Check if row has an explicit verified pricing rule matching project
+      if (!pricingResolution?.selectedRule && canonical.pricingRule) {
+        const explicitMatch = projectRules.find(
+          (r) => r.pricingRuleId === canonical.pricingRule && r.projectId === batch.projectId
+        );
+        if (explicitMatch) {
+          pricingResolution = {
+            status: 'RESOLVED',
+            selectedRule: explicitMatch,
+            rule: explicitMatch,
+            reason: 'تم استخدام قاعدة التسعير التعاقدية المحددة صراحة في بيانات الاستيراد',
+            reasonAr: 'تم استخدام قاعدة التسعير التعاقدية المحددة صراحة في بيانات الاستيراد',
+            reasonCode: 'EXPLICIT_RULE_APPLIED',
+            candidates: [explicitMatch],
+          };
+        }
+      }
+
+      // 4. Calculate Settlement or Mark Pending
+      let pricingSnapshot: TripPricingSnapshot;
+      let pricingRuleId: string = 'UNRESOLVED_PENDING';
+      let pricingType: string = 'PER_TON';
+      let isFinalized = false;
+
+      if (pricingResolution && pricingResolution.status === 'RESOLVED' && pricingResolution.selectedRule) {
+        const rule = pricingResolution.selectedRule;
+        pricingRuleId = rule.pricingRuleId;
+        pricingType = rule.pricingType;
+
+        // Weighbridge without destination weight or origin acceptance
+        const isWeighbridgeWithoutUnload = isWeighbridge && !canonical.destNetWeight && !isAcceptedOrigin;
+        if (rule.pricingType === 'PER_TON' && isWeighbridgeWithoutUnload) {
+          const pendingCalc = pricingService.calculateSettlement({
+            pricingRule: rule,
+            allowMissingWeight: true,
+            netWeightTon: 0,
+          });
+          pricingSnapshot = {
+            ...pendingCalc.snapshot,
+            isPending: true,
+            pendingReason: 'تسعيرة معلقة: بانتظار استكمال إجراءات التنزيل وتسجيل وزن المقصد المعتمد',
+            settlementAmount: 0,
+          };
+          isFinalized = false;
+        } else {
+          // Billable tons determined by business rules
+          const netTons = isAcceptedOrigin
+            ? (canonical.netWeight || 0) / 1000
+            : canonical.destNetWeight !== undefined && canonical.destNetWeight !== null
+            ? canonical.destNetWeight / 1000
+            : (canonical.netWeight || 0) / 1000;
+
+          const calc = pricingService.calculateSettlement({
+            pricingRule: rule,
+            netWeightTon: netTons,
+            unitsCount: 1,
+          });
+
+          pricingSnapshot = calc.snapshot;
+          isFinalized = !calc.isPending;
+        }
+      } else {
+        // NO GUESSING: If unresolved or ambiguous, set to PENDING
+        const pendingReason = entityResolutionPending
+          ? carrierRequiresReview
+            ? 'الناقل بانتظار المراجعة (Entity Resolution Pending)'
+            : 'مادة التوريد بانتظار المراجعة'
+          : pricingResolution?.reasonAr || 'لا توجد اتفاقية تسعير سارية لهذا الناقل والمادة في تاريخ الرحلة';
+
+        pricingSnapshot = pricingService.createPendingSnapshot(pendingReason);
+        pricingRuleId = 'UNRESOLVED_PENDING';
+        pricingType = 'PER_TON';
+        isFinalized = false;
+      }
+
+      const baseAmountSAR = pricingSnapshot.settlementAmount;
+      const vatAmountSAR = isFinalized ? Number((baseAmountSAR * 0.15).toFixed(2)) : 0;
+      const totalAmountSAR = isFinalized ? Number((baseAmountSAR + vatAmountSAR).toFixed(2)) : 0;
 
       const newTrip: Omit<TripEntity, 'createdAt' | 'updatedAt'> & {
         createdBy: string;
@@ -239,19 +401,7 @@ export class ExcelCsvTripCommitter implements IImportCommitter {
           nameAr: canonical.materialType || 'مواد ركامية عامة',
           unitOfMeasure: 'TON',
         },
-        pricingSnapshot: {
-          pricingRuleId,
-          pricingType,
-          agreedRate: resolvedRate,
-          currency: 'SAR',
-          settlementBase: netTons,
-          settlementAmount: baseAmountSAR,
-          pricingSnapshotAt: new Date().toISOString(),
-          pricingModel: pricingType,
-          baseRateSAR: resolvedRate,
-          vatApplicable: hasExplicitPricing,
-          vatRatePercent: hasExplicitPricing ? 15 : 0,
-        },
+        pricingSnapshot: pricingSnapshot as any,
 
         status: initialStatus,
 
@@ -273,13 +423,13 @@ export class ExcelCsvTripCommitter implements IImportCommitter {
           vatAmountSAR,
           totalAmountSAR,
           currency: 'SAR',
-          isFinalized: hasExplicitPricing,
+          isFinalized,
         },
 
         clientUUID: `CUUID-IMP-${batch.importBatchId}-${row.rowNumber}`,
         syncStatus: 'SYNCED',
-        hasExceptions: !hasExplicitPricing,
-        activeExceptionCount: hasExplicitPricing ? 0 : 1,
+        hasExceptions: !isFinalized,
+        activeExceptionCount: isFinalized ? 0 : 1,
         createdBy: context.userId,
         updatedBy: context.userId,
       };

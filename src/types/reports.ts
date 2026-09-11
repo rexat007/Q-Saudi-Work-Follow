@@ -47,6 +47,12 @@ export interface ReportFinancialSummary {
   completedTripsCount: number;
   exceptionsCount: number;
   returnedTripsCount: number;
+
+  // BLOCK 36 Gap 1 Fix: Explicit pending pricing separation
+  pricedTrips: number;
+  pendingSettlementTrips: number;
+  finalSettlementAmount: number; // Excludes pending settlement trips
+  pendingSettlementAmount?: number;
 }
 
 export interface ReportColumnDef {
