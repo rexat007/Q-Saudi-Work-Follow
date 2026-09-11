@@ -15,6 +15,8 @@ import { DEFAULT_PROJECTS, DEFAULT_CARRIERS, DEFAULT_DRIVERS, DEFAULT_MATERIALS 
 import { auth } from '../firebase/config';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
+const getApiBase = () => (typeof window !== 'undefined' ? '' : 'http://localhost:3000');
+
 export class ClientWorkspaceService {
   private currentAccessToken: string | null = null;
 
@@ -381,6 +383,98 @@ export class ClientWorkspaceService {
       mimeType: json.mimeType,
       size: json.size || bytes.length,
     };
+  }
+
+  /**
+   * Lists Google Spreadsheets accessible for project.
+   * BLOCK 33: Google Sheets discovery
+   */
+  public async listGoogleSpreadsheets(projectId: string): Promise<{
+    spreadsheets: Array<{
+      id: string;
+      name: string;
+      mimeType: 'application/vnd.google-apps.spreadsheet';
+      modifiedTime?: string;
+      webViewLink?: string;
+      sheets?: Array<{ sheetId: number; title: string; index: number; rowCount?: number; columnCount?: number }>;
+    }>;
+    totalCount: number;
+    projectId: string;
+  }> {
+    const token = this.getAccessToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${getApiBase()}/api/workspace/sheets/spreadsheets?projectId=${encodeURIComponent(projectId)}`, {
+      headers,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      throw new Error(err.error || 'فشل استعراض جداول بيانات Google Sheets للمشروع');
+    }
+
+    const data = await res.json();
+    return {
+      spreadsheets: data.spreadsheets || [],
+      totalCount: data.totalCount || 0,
+      projectId: data.projectId || projectId,
+    };
+  }
+
+  /**
+   * Retrieves metadata and sheet tabs for a spreadsheet.
+   * BLOCK 33: Sheet selection
+   */
+  public async getSpreadsheetMetadata(spreadsheetId: string): Promise<{
+    spreadsheetId: string;
+    title: string;
+    sheets: Array<{ sheetId: number; title: string; index: number; rowCount?: number; columnCount?: number }>;
+  }> {
+    const token = this.getAccessToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${getApiBase()}/api/workspace/sheets/${encodeURIComponent(spreadsheetId)}/metadata`, {
+      headers,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      throw new Error(err.error || 'فشل استخراج بيانات ورقات العمل في جدول البيانات');
+    }
+
+    return res.json();
+  }
+
+  /**
+   * Retrieves 2D array row data from a specific sheet in a Google Spreadsheet.
+   * BLOCK 33: Reading Sheet Data
+   */
+  public async getSpreadsheetValues(
+    spreadsheetId: string,
+    sheetName: string
+  ): Promise<{
+    spreadsheetId: string;
+    spreadsheetTitle: string;
+    sheetTitle: string;
+    values: any[][];
+    totalRows: number;
+    totalColumns: number;
+  }> {
+    const token = this.getAccessToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const url = `${getApiBase()}/api/workspace/sheets/${encodeURIComponent(spreadsheetId)}/values?sheetName=${encodeURIComponent(sheetName)}`;
+    const res = await fetch(url, { headers });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      throw new Error(err.error || 'فشل قراءة بيانات ورقة العمل من جدول البيانات');
+    }
+
+    return res.json();
   }
 }
 

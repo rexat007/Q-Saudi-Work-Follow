@@ -26,17 +26,17 @@ const CANONICAL_FIELD_DEFINITIONS: FieldAliasDefinition[] = [
   {
     canonicalField: 'ticketId',
     exactNames: ['ticketid', 'ticket_id', 'ticketno', 'ticket_no', 'ticket', 'رقم_التذكرة', 'رقم_البوليصة', 'رقم_الشحنة'],
-    aliases: ['تذكرة', 'بوليصة', 'شحنة', 'waybill', 'bill_no', 'doc_no', 'weighbill', 'ticket number', 'رقم التذكرة', 'رقم البوليصة', 'رقم الشحنة', 'رقم الوصل', 'وصل'],
+    aliases: ['تذكرة', 'بوليصة', 'شحنة', 'waybill', 'bill_no', 'doc_no', 'weighbill', 'ticket number', 'رقم التذكرة', 'رقم البوليصة', 'رقم الشحنة', 'رقم الوصل', 'وصل', 'رقم تذكرة الميزان', 'تذكرة الميزان'],
   },
   {
     canonicalField: 'truckNo',
     exactNames: ['truckno', 'truck_no', 'truckid', 'truck_id', 'plate', 'plateno', 'plate_no', 'رقم_اللوحة', 'اللوحة', 'الشاحنة', 'رقم_الشاحنة'],
-    aliases: ['لوحة', 'شاحنة', 'رأس تريلا', 'رقم اللوحة', 'رقم الشاحنة', 'رقم المركبة', 'المركبة', 'vehicle', 'vehicle_no', 'truck', 'truck_plate'],
+    aliases: ['لوحة', 'شاحنة', 'رأس تريلا', 'رقم اللوحة', 'رقم الشاحنة', 'رقم المركبة', 'المركبة', 'vehicle', 'vehicle_no', 'truck', 'truck_plate', 'رقم لوحة الشاحنة', 'لوحة الشاحنة'],
   },
   {
     canonicalField: 'carrier',
     exactNames: ['carrier', 'carrierid', 'carrier_id', 'transporter', 'transporter_id', 'الناقل', 'شركة_النقل', 'اسم_الناقل', 'المقاول'],
-    aliases: ['مؤسسة النقل', 'شركة النقل', 'الناقل', 'اسم الناقل', 'المقاول', 'المورد', 'transport_company', 'carrier_name', 'hauler', 'vendor'],
+    aliases: ['مؤسسة النقل', 'شركة النقل', 'الناقل', 'اسم الناقل', 'المقاول', 'المورد', 'transport_company', 'carrier_name', 'hauler', 'vendor', 'اسم الناقل المعتمد'],
   },
   {
     canonicalField: 'driverName',
@@ -56,17 +56,17 @@ const CANONICAL_FIELD_DEFINITIONS: FieldAliasDefinition[] = [
   {
     canonicalField: 'tareWeight',
     exactNames: ['tare', 'tareweight', 'tare_weight', 'tare_kg', 'tareweightkg', 'الوزن_الفارغ', 'فارغ', 'وزن_فارغ'],
-    aliases: ['فارغ كجم', 'الوزن الفارغ', 'وزن فارغ', 'فارغ', 'وزن الشاحنة فارغة', 'tare_tons', 'empty_weight'],
+    aliases: ['فارغ كجم', 'الوزن الفارغ', 'وزن فارغ', 'فارغ', 'وزن الشاحنة فارغة', 'tare_tons', 'empty_weight', 'وزن الدخول الفارغ', 'وزن الدخول'],
   },
   {
     canonicalField: 'grossWeight',
     exactNames: ['gross', 'grossweight', 'gross_weight', 'gross_kg', 'grossweightkg', 'الوزن_القائم', 'الإجمالي', 'وزن_إجمالي', 'قائم'],
-    aliases: ['قائم كجم', 'الوزن الإجمالي', 'وزن إجمالي', 'الوزن القائم', 'قائم', 'ممتلئ', 'full_weight', 'total_weight'],
+    aliases: ['قائم كجم', 'الوزن الإجمالي', 'وزن إجمالي', 'الوزن القائم', 'قائم', 'ممتلئ', 'full_weight', 'total_weight', 'الوزن الإجمالي القائم'],
   },
   {
     canonicalField: 'netWeight',
     exactNames: ['net', 'netweight', 'net_weight', 'net_kg', 'netweightkg', 'الوزن_الصافي', 'الصافي', 'وزن_صافي'],
-    aliases: ['صافي كجم', 'الوزن الصافي', 'وزن صافي', 'الصافي', 'حمولة صافية', 'net_payload', 'payload_weight'],
+    aliases: ['صافي كجم', 'الوزن الصافي', 'وزن صافي', 'الصافي', 'حمولة صافية', 'net_payload', 'payload_weight', 'صافي وزن الحمولة'],
   },
   {
     canonicalField: 'destNetWeight',

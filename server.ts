@@ -366,6 +366,95 @@ app.get('/api/workspace/drive/files/:fileId/content', async (req, res) => {
 });
 
 // ----------------------------------------------------
+// 6d. List Google Spreadsheets for Project (BLOCK 33)
+// ----------------------------------------------------
+app.get('/api/workspace/sheets/spreadsheets', async (req, res) => {
+  try {
+    const bearerToken = req.headers.authorization;
+    const projectId = (req.query.projectId as string) || 'PRJ-NEOM-NORTH-01';
+
+    const result = await serverWorkspaceService.listProjectSpreadsheets(projectId, bearerToken);
+
+    res.json({
+      success: true,
+      spreadsheets: result.spreadsheets,
+      totalCount: result.totalCount,
+      projectId: result.projectId,
+    });
+  } catch (error: any) {
+    console.error('Error in /api/workspace/sheets/spreadsheets:', error);
+    const status = error.code === 401 ? 401 : error.code === 403 ? 403 : error.code === 404 ? 404 : 500;
+    res.status(status).json({
+      success: false,
+      error: error.message || 'فشل استعراض جداول بيانات Google Sheets للمشروع',
+    });
+  }
+});
+
+// ----------------------------------------------------
+// 6e. Get Spreadsheet Metadata & Sheet Tabs (BLOCK 33)
+// ----------------------------------------------------
+app.get('/api/workspace/sheets/:spreadsheetId/metadata', async (req, res) => {
+  try {
+    const bearerToken = req.headers.authorization;
+    const { spreadsheetId } = req.params;
+
+    if (!spreadsheetId) {
+      return res.status(400).json({
+        success: false,
+        error: 'معرف جدول بيانات Google Sheets مطلوب',
+      });
+    }
+
+    const metadata = await serverWorkspaceService.getSpreadsheetMetadata(spreadsheetId, bearerToken);
+
+    res.json({
+      success: true,
+      ...metadata,
+    });
+  } catch (error: any) {
+    console.error('Error in /api/workspace/sheets/:spreadsheetId/metadata:', error);
+    const status = error.code === 401 ? 401 : error.code === 403 ? 403 : error.code === 404 ? 404 : 500;
+    res.status(status).json({
+      success: false,
+      error: error.message || 'فشل استخراج معلومات وأوراق جدول البيانات',
+    });
+  }
+});
+
+// ----------------------------------------------------
+// 6f. Get Spreadsheet Values from Sheet Tab (BLOCK 33)
+// ----------------------------------------------------
+app.get('/api/workspace/sheets/:spreadsheetId/values', async (req, res) => {
+  try {
+    const bearerToken = req.headers.authorization;
+    const { spreadsheetId } = req.params;
+    const sheetName = (req.query.sheetName as string) || 'Sheet1';
+
+    if (!spreadsheetId) {
+      return res.status(400).json({
+        success: false,
+        error: 'معرف جدول بيانات Google Sheets مطلوب',
+      });
+    }
+
+    const data = await serverWorkspaceService.getSpreadsheetValues(spreadsheetId, sheetName, bearerToken);
+
+    res.json({
+      success: true,
+      ...data,
+    });
+  } catch (error: any) {
+    console.error('Error in /api/workspace/sheets/:spreadsheetId/values:', error);
+    const status = error.code === 401 ? 401 : error.code === 403 ? 403 : error.code === 404 ? 404 : 500;
+    res.status(status).json({
+      success: false,
+      error: error.message || 'فشل قراءة بيانات ورقة العمل من جدول البيانات',
+    });
+  }
+});
+
+// ----------------------------------------------------
 // 7. Security Enforcement: Trip Update with RBAC
 // ----------------------------------------------------
 app.patch(

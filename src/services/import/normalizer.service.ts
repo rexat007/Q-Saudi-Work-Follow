@@ -57,6 +57,14 @@ export class ExcelCsvNormalizer implements IImportNormalizer<Record<string, any>
       }
     }
 
+    // BLOCK 33 Weighbridge Rule: If destination net weight is missing, ensure destNetWeight = null, varianceWeight = null (do NOT create fake 0 variance)
+    if (normalized.destNetWeight === undefined) {
+      normalized.destNetWeight = null;
+    }
+    if (normalized.varianceWeight === undefined) {
+      normalized.varianceWeight = null;
+    }
+
     return normalized;
   }
 
