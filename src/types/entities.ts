@@ -164,6 +164,10 @@ export interface TripSourceMetadata {
   sourceSheetName?: string;
   sourceRowId?: string | number;
   sourceMimeType?: string;
+  metadata?: Record<string, any>;
+  legacyTripSerial?: number | string;
+  legacyRate?: number | string;
+  legacyStatus?: string;
 }
 
 // 8. Trip Entity
@@ -257,6 +261,7 @@ export interface TripEntity extends BaseAuditedEntity {
     destinationTicketDriveFileId?: string;
 
     billableWeightKg?: number;
+    varianceKg?: number;
   };
 
   // Financials

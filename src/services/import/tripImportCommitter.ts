@@ -28,6 +28,7 @@ import { pricingService } from '../pricing.service';
 import { pricingRuleRepository } from '../../repositories/pricingRule.repository';
 import { MASTER_PRICING_RULES } from '../../data/masterPricingRules';
 import { PricingRule, TripPricingSnapshot } from '../../types/pricing';
+import { mapLegacyStatusToTripStatus } from './legacyStatusMapper';
 
 export class ExcelCsvTripCommitter implements IImportCommitter {
   // Static cache for idempotency tracking
@@ -175,9 +176,23 @@ export class ExcelCsvTripCommitter implements IImportCommitter {
       const tripId = `TRP-IMP-${batch.importBatchId.slice(-6)}-${tripIndex}`;
       const tripNumber = `TRP-${new Date().getFullYear()}-${String(100000 + tripIndex).padStart(6, '0')}`;
 
-      // Determine initial status based on weights
+      // Determine initial status based on weights or explicit legacy status
       let initialStatus: TripStatus = 'DISPATCHED';
-      if (canonical.destNetWeight !== undefined && canonical.destNetWeight !== null) {
+      if (canonical.isLegacyMigration || canonical.status || canonical.legacyStatus) {
+        const mappedStatus = mapLegacyStatusToTripStatus(canonical.status || canonical.legacyStatus);
+        if (!mappedStatus.isUnknown) {
+          initialStatus = mappedStatus.tripStatus;
+        } else if (canonical.destNetWeight !== undefined && canonical.destNetWeight !== null) {
+          initialStatus = 'COMPLETED';
+        } else if (
+          canonical.grossWeight !== undefined &&
+          canonical.grossWeight !== null &&
+          canonical.tareWeight !== undefined &&
+          canonical.tareWeight !== null
+        ) {
+          initialStatus = 'WEIGHED_ORIGIN';
+        }
+      } else if (canonical.destNetWeight !== undefined && canonical.destNetWeight !== null) {
         initialStatus = 'COMPLETED';
       } else if (
         canonical.grossWeight !== undefined &&
@@ -375,6 +390,9 @@ export class ExcelCsvTripCommitter implements IImportCommitter {
           sourceSheetName: batch.source.sourceSheetName,
           sourceRowId: row.sourceRowId || row.rowNumber,
           sourceMimeType: batch.source.sourceMimeType,
+          ...(canonical.tripSerial !== undefined && canonical.tripSerial !== null ? { legacyTripSerial: canonical.tripSerial } : {}),
+          ...(canonical.tripRate !== undefined && canonical.tripRate !== null ? { legacyRate: canonical.tripRate } : {}),
+          ...(canonical.status ? { legacyStatus: canonical.status } : {}),
         },
 
         // Historical snapshots

@@ -511,6 +511,70 @@ export class ExcelCsvTripValidator implements IImportValidator<CanonicalTripRow>
       }
     }
 
+    // 11. BLOCK 37: Legacy Variance Mismatch Check
+    if (
+      typeof canonical.netWeight === 'number' &&
+      typeof canonical.destNetWeight === 'number' &&
+      !isNaN(canonical.netWeight) &&
+      !isNaN(canonical.destNetWeight) &&
+      canonical.varianceWeight !== undefined &&
+      canonical.varianceWeight !== null &&
+      typeof canonical.varianceWeight === 'number' &&
+      !isNaN(canonical.varianceWeight)
+    ) {
+      const calculatedVariance = Math.round((canonical.destNetWeight - canonical.netWeight) * 100) / 100;
+      const absCalcVar = Math.abs(calculatedVariance);
+      const absSourceVar = Math.abs(canonical.varianceWeight);
+      const diff = Math.round(Math.abs(absSourceVar - absCalcVar) * 100) / 100;
+
+      if (diff > NET_WEIGHT_CALCULATION_TOLERANCE_KG) {
+        issues.push({
+          issueId: `WRN-LEGACY-VAR-${rowNum}`,
+          row: rowNum,
+          field: 'varianceWeight',
+          code: 'LEGACY_VARIANCE_MISMATCH',
+          severity: 'WARNING',
+          blocking: false,
+          resolvable: true,
+          message: `Legacy sheet variance (${canonical.varianceWeight} kg) does not match calculated variance (${calculatedVariance} kg). Difference: ${diff} kg.`,
+          messageAr: `فارق الوزن المسجل بالشيت القديم (${canonical.varianceWeight} كجم) يختلف عن الفارق المحسوب بين الصافي وصافي الوصول (${calculatedVariance} كجم) بفارق ${diff} كجم.`,
+          originalValue: {
+            sourceVariance: canonical.varianceWeight,
+            calculatedVariance,
+            difference: diff,
+          },
+        });
+      }
+    }
+
+    // 12. BLOCK 37: Legacy Status Verification
+    if (canonical.status || canonical.legacyStatus) {
+      const statusToCheck = canonical.status || canonical.legacyStatus;
+      const knownStatuses = [
+        'مكتمل', 'مكتملة', 'تم الانتهاء', 'completed', 'delivered', 'done',
+        'منقول', 'في الطريق', 'محمل', 'تم التحميل', 'in_transit', 'transit', 'dispatched',
+        'مرفوض', 'مرفوضة', 'rejected',
+        'ملغى', 'ملغي', 'ملغية', 'cancelled', 'canceled',
+        'موزون', 'موزونة', 'weighed', 'weighed_origin'
+      ];
+      const normStatus = String(statusToCheck).trim().toLowerCase();
+      const isKnown = knownStatuses.some((s) => normStatus.includes(s));
+      if (!isKnown) {
+        issues.push({
+          issueId: `WRN-STATUS-UNK-${rowNum}`,
+          row: rowNum,
+          field: 'status',
+          code: 'UNKNOWN_LEGACY_STATUS',
+          severity: 'WARNING',
+          blocking: false,
+          resolvable: true,
+          message: `Legacy trip status (${statusToCheck}) is unrecognized and requires review.`,
+          messageAr: `حالة الرحلة في الشيت القديم (${statusToCheck}) غير معروفة وتتطلب مراجعة.`,
+          originalValue: statusToCheck,
+        });
+      }
+    }
+
     return issues;
   }
 }

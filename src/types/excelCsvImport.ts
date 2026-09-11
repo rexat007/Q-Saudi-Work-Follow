@@ -38,11 +38,18 @@ export interface CanonicalTripRow {
   loader?: string;
   unloader?: string;
   pricingRule?: string;
+  tripRate?: number;
+  status?: string;
+  tripSerial?: number | string;
   weighTime?: string;
   loadTime?: string;
   unloadTime?: string;
   note?: string;
   isWeighbridgeOnly?: boolean;
+  isLegacyMigration?: boolean;
+  legacyStatus?: string;
+  legacyRate?: number;
+  rawStatus?: string;
   unloadDecision?: 'ACCEPT_ORIGIN_NET_AS_DESTINATION' | string;
   unloadingActorType?: 'USER' | 'IMPORT' | 'SYSTEM' | string;
   unloadingActorId?: string;

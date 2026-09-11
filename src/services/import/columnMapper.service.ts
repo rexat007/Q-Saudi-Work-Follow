@@ -24,6 +24,11 @@ interface FieldAliasDefinition {
 
 const CANONICAL_FIELD_DEFINITIONS: FieldAliasDefinition[] = [
   {
+    canonicalField: 'projectId',
+    exactNames: ['projectid', 'project_id', 'project', 'معرف_المشروع', 'المشروع', 'كود_المشروع'],
+    aliases: ['project id', 'project', 'معرف المشروع', 'المشروع', 'كود المشروع', 'اسم المشروع', 'project code'],
+  },
+  {
     canonicalField: 'ticketId',
     exactNames: ['ticketid', 'ticket_id', 'ticketno', 'ticket_no', 'ticket', 'رقم_التذكرة', 'رقم_البوليصة', 'رقم_الشحنة'],
     aliases: ['تذكرة', 'بوليصة', 'شحنة', 'waybill', 'bill_no', 'doc_no', 'weighbill', 'ticket number', 'رقم التذكرة', 'رقم البوليصة', 'رقم الشحنة', 'رقم الوصل', 'وصل', 'رقم تذكرة الميزان', 'تذكرة الميزان'],
@@ -70,28 +75,48 @@ const CANONICAL_FIELD_DEFINITIONS: FieldAliasDefinition[] = [
   },
   {
     canonicalField: 'destNetWeight',
-    exactNames: ['destnet', 'dest_net', 'destnetweight', 'dest_net_weight', 'وزن_الوصول_الصافي', 'صافي_الوصول', 'صافي_التفريغ'],
-    aliases: ['صافي الوصول', 'صافي موقع التفريغ', 'وزن الوصول الصافي', 'arrival_net', 'unload_net_weight', 'dest_weight'],
+    exactNames: ['destnet', 'dest_net', 'destnetweight', 'dest_net_weight', 'وزن_الوصول_الصافي', 'صافي_الوصول', 'صافي_التفريغ', 'وزن_الوصول', 'وزن_التفريغ'],
+    aliases: ['صافي الوصول', 'صافي موقع التفريغ', 'وزن الوصول الصافي', 'arrival_net', 'unload_net_weight', 'dest_weight', 'destination net', 'dest net', 'destination weight', 'وزن الوصول', 'وزن التفريغ'],
+  },
+  {
+    canonicalField: 'varianceWeight',
+    exactNames: ['varianceweight', 'variance_weight', 'variance', 'الفارق', 'فارق_الوزن', 'فرق_الوزن'],
+    aliases: ['فارق الوزن', 'الفارق', 'فرق الوزن', 'weight variance', 'variance', 'فارق'],
   },
   {
     canonicalField: 'loader',
-    exactNames: ['loader', 'loader_name', 'scaleoperator', 'scale_operator', 'الموزن', 'محطة_التحميل', 'المشغل'],
-    aliases: ['مسؤول الميزان', 'مشغل الميزان', 'الموزن', 'محطة التحميل', 'scale_user', 'weigher'],
+    exactNames: ['loader', 'loader_name', 'scaleoperator', 'scale_operator', 'الموزن', 'محطة_التحميل', 'المشغل', 'المحمل'],
+    aliases: ['مسؤول الميزان', 'مشغل الميزان', 'الموزن', 'محطة التحميل', 'scale_user', 'weigher', 'loading operator', 'المحمل', 'مسؤول التحميل'],
   },
   {
     canonicalField: 'unloader',
-    exactNames: ['unloader', 'unloader_name', 'محطة_التفريغ', 'مشغل_التفريغ'],
-    aliases: ['مستلم الموقع', 'مشغل التفريغ', 'محطة التفريغ', 'site_receiver'],
+    exactNames: ['unloader', 'unloader_name', 'محطة_التفريغ', 'مشغل_التفريغ', 'المستلم'],
+    aliases: ['مستلم الموقع', 'مشغل التفريغ', 'محطة التفريغ', 'site_receiver', 'receiving operator', 'المستلم', 'مسؤول التفريغ'],
+  },
+  {
+    canonicalField: 'tripRate',
+    exactNames: ['triprate', 'trip_rate', 'rate', 'price', 'سعر_الرحلة', 'التعرفة', 'سعر', 'اجرة'],
+    aliases: ['سعر الطن', 'سعر الرد', 'فئة السعر', 'قاعدة التسعير', 'rate_sar', 'price_tier', 'trip rate', 'rate', 'price', 'سعر الرحلة', 'التعرفة', 'اجرة النقل', 'اجرة الرحلة', 'قيمة النقل'],
   },
   {
     canonicalField: 'pricingRule',
-    exactNames: ['pricingrule', 'pricing_rule', 'rate', 'price', 'فئة_السعر', 'السعر'],
-    aliases: ['سعر الطن', 'سعر الرد', 'فئة السعر', 'قاعدة التسعير', 'rate_sar', 'price_tier'],
+    exactNames: ['pricingrule', 'pricing_rule', 'فئة_السعر', 'قاعدة_التسعير'],
+    aliases: ['فئة السعر', 'قاعدة التسعير', 'pricing rule', 'pricing_rule'],
+  },
+  {
+    canonicalField: 'status',
+    exactNames: ['status', 'tripstatus', 'trip_status', 'الحالة', 'حالة_الرحلة', 'حالة'],
+    aliases: ['حالة', 'الحالة', 'حالة الرحلة', 'status', 'trip status'],
+  },
+  {
+    canonicalField: 'tripSerial',
+    exactNames: ['tripserial', 'trip_serial', 'serial', 'الرقم_التسلسلي', 'تسلسلي', 'سيريال', 'مسلسل', 'الرقم_المسلسل'],
+    aliases: ['trip serial', 'serial', 'الرقم التسلسلي', 'رقم الرحلة التسلسلي', 'مسلسل', 'رقم تسلسلي', 'الرقم المسلسل'],
   },
   {
     canonicalField: 'loadTime',
     exactNames: ['loadtime', 'load_time', 'weightime', 'weigh_time', 'time', 'الوقت', 'وقت_التحميل', 'وقت_الوزن'],
-    aliases: ['ساعة الوزن', 'وقت الحركة', 'زمن التحميل', 'وقت التحميل', 'time_in', 'ساعة التحميل'],
+    aliases: ['ساعة الوزن', 'وقت الحركة', 'زمن التحميل', 'وقت التحميل', 'time_in', 'ساعة التحميل', 'loading time', 'dispatch time', 'وقت الارسال'],
   },
   {
     canonicalField: 'weighTime',
@@ -101,7 +126,7 @@ const CANONICAL_FIELD_DEFINITIONS: FieldAliasDefinition[] = [
   {
     canonicalField: 'unloadTime',
     exactNames: ['unloadtime', 'unload_time', 'وقت_التفريغ'],
-    aliases: ['ساعة التفريغ', 'زمن الوصول', 'time_out'],
+    aliases: ['ساعة التفريغ', 'زمن الوصول', 'time_out', 'unloading time', 'offload time', 'وقت التنزيل'],
   },
   {
     canonicalField: 'note',
@@ -267,6 +292,35 @@ export class ExcelCsvColumnMapper implements IImportMapper<Record<string, any>, 
         !isNaN(mapped.tareWeight)
       ) {
         mapped.netWeight = Math.round((mapped.grossWeight - mapped.tareWeight) * 100) / 100;
+      }
+    }
+
+    // Ensure projectId from row is used if present and non-empty, otherwise fallback to context
+    if (mapped.projectId && typeof mapped.projectId === 'string' && mapped.projectId.trim().length > 0) {
+      mapped.projectId = mapped.projectId.trim();
+    } else {
+      mapped.projectId = context.projectId;
+    }
+
+    // Ensure numeric types for weights and rates if provided as strings
+    if (mapped.tripRate !== undefined && mapped.tripRate !== null && typeof mapped.tripRate !== 'number') {
+      const parsedRate = Number(String(mapped.tripRate).replace(/[^0-9.-]/g, ''));
+      if (!isNaN(parsedRate)) mapped.tripRate = parsedRate;
+    }
+    if (mapped.varianceWeight !== undefined && mapped.varianceWeight !== null && typeof mapped.varianceWeight !== 'number') {
+      const parsedVar = Number(String(mapped.varianceWeight).replace(/[^0-9.-]/g, ''));
+      if (!isNaN(parsedVar)) mapped.varianceWeight = parsedVar;
+    }
+
+    // If profile is MIGRATION or legacy
+    if (context.profile === 'MIGRATION' || context.profile === 'LEGACY_MIGRATION') {
+      mapped.isLegacyMigration = true;
+      if (mapped.status) {
+        mapped.legacyStatus = String(mapped.status);
+        mapped.rawStatus = String(mapped.status);
+      }
+      if (mapped.tripRate !== undefined && mapped.tripRate !== null) {
+        mapped.legacyRate = Number(mapped.tripRate);
       }
     }
 

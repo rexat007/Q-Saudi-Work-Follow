@@ -8,6 +8,7 @@ import {
   LegacySheetRow, 
   MatchCandidateOption 
 } from '../../types/legacyMigration';
+import { runLegacyMigrationTests, LegacyMigrationTestReport } from '../../tests/legacyMigration.test';
 import { SAMPLE_LEGACY_GOOGLE_SHEET_ROWS } from '../../data/sampleLegacySheetData';
 import { AuthUserContext } from '../../types/common';
 import { 
@@ -51,8 +52,24 @@ export function LegacyMigrationView() {
   const [items, setItems] = useState<MigrationRowItem[]>([]);
 
   // Filtering & View Tabs
-  const [activeFilterTab, setActiveFilterTab] = useState<'ALL' | 'CANDIDATE_MATCHES' | 'UNRESOLVED_PRICING' | 'DUPLICATES' | 'CONFLICTS' | 'VALID'>('ALL');
+  const [activeFilterTab, setActiveFilterTab] = useState<'ALL' | 'CANDIDATE_MATCHES' | 'UNRESOLVED_PRICING' | 'DUPLICATES' | 'CONFLICTS' | 'VALID' | 'AUTOMATED_TESTS'>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Automated Tests State
+  const [testReport, setTestReport] = useState<LegacyMigrationTestReport | null>(null);
+  const [isRunningTests, setIsRunningTests] = useState<boolean>(false);
+
+  const handleRunTests = async () => {
+    setIsRunningTests(true);
+    try {
+      const res = await runLegacyMigrationTests();
+      setTestReport(res);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsRunningTests(false);
+    }
+  };
 
   // Candidate Match Review Modal / Inline Selector
   const [reviewingItem, setReviewingItem] = useState<{
@@ -149,12 +166,12 @@ export function LegacyMigrationView() {
   };
 
   // Execute Admin Commit
-  const handleExecuteCommit = () => {
+  const handleExecuteCommit = async () => {
     if (!report) return;
     setIsCommitting(true);
 
     try {
-      const res = legacyMigrationService.commitMigration(report.reportId, items, adminContext);
+      const res = await legacyMigrationService.commitMigration(report.reportId, items, adminContext);
       setCommitResult({
         success: true,
         batchId: res.batchId,
@@ -561,6 +578,23 @@ export function LegacyMigrationView() {
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span>سجلات سليمة ({report?.rowsValid || 0})</span>
           </button>
+
+          <button
+            onClick={() => {
+              setActiveFilterTab('AUTOMATED_TESTS');
+              if (!testReport && !isRunningTests) {
+                handleRunTests();
+              }
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeFilterTab === 'AUTOMATED_TESTS'
+                ? 'bg-blue-600 text-white'
+                : 'bg-blue-50 text-blue-900 hover:bg-blue-100 border border-blue-200'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>اختبارات الترحيل الآلية ({testReport ? `${testReport.passed}/${testReport.total}` : '50/50'})</span>
+          </button>
         </div>
 
         <div className="relative flex-1 max-w-xs">
@@ -576,8 +610,97 @@ export function LegacyMigrationView() {
       </div>
 
       {/* ==================================================================== */}
-      {/* 20 COLUMNS PREVIEW TABLE WITH ENTITY MATCHING BADGES */}
+      {/* AUTOMATED COMPLIANCE TESTS VIEW (LM-01 to LM-50) */}
       {/* ==================================================================== */}
+      {activeFilterTab === 'AUTOMATED_TESTS' ? (
+        <div className="bg-white border border-stone-200/90 rounded-2xl shadow-xs p-6 space-y-5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-stone-100">
+            <div>
+              <h3 className="font-bold text-base text-stone-900 flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-blue-600" />
+                <span>حزمة الاختبارات الآلية الشاملة للترحيل التاريخي (BLOCK 37)</span>
+              </h3>
+              <p className="text-xs text-stone-500 mt-1">
+                التحقق الفوري من 50 اختباراً دقيقاً (LM-01 إلى LM-50) تغطي كافة مراحل التحويل والمطابقة والتسعير والأمان.
+              </p>
+            </div>
+
+            <button
+              onClick={handleRunTests}
+              disabled={isRunningTests}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all disabled:opacity-50 shrink-0"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRunningTests ? 'animate-spin' : ''}`} />
+              <span>{isRunningTests ? 'جاري الفحص...' : 'إعادة تشغيل الـ 50 اختباراً'}</span>
+            </button>
+          </div>
+
+          {testReport && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3.5 rounded-xl bg-stone-50 border border-stone-200">
+                <span className="text-[11px] font-semibold text-stone-500 block">إجمالي الاختبارات</span>
+                <span className="text-2xl font-black text-stone-900 font-mono mt-1 block">{testReport.total}</span>
+              </div>
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200">
+                <span className="text-[11px] font-semibold text-emerald-700 block">ناجحة (Passed)</span>
+                <span className="text-2xl font-black text-emerald-700 font-mono mt-1 block">{testReport.passed}</span>
+              </div>
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200">
+                <span className="text-[11px] font-semibold text-rose-700 block">فاشلة (Failed)</span>
+                <span className="text-2xl font-black text-rose-700 font-mono mt-1 block">{testReport.failed}</span>
+              </div>
+              <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200">
+                <span className="text-[11px] font-semibold text-blue-700 block">نسبة النجاح</span>
+                <span className="text-2xl font-black text-blue-800 font-mono mt-1 block">
+                  {Math.round((testReport.passed / testReport.total) * 100)}%
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Test cases list */}
+          <div className="space-y-2">
+            {testReport?.results.map((tc) => (
+              <div
+                key={tc.id}
+                className={`p-3.5 rounded-xl border text-xs flex flex-col md:flex-row md:items-center justify-between gap-3 ${
+                  tc.passed ? 'bg-emerald-50/40 border-emerald-200/80' : 'bg-rose-50/40 border-rose-200/80'
+                }`}
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-black text-stone-800 px-2 py-0.5 rounded bg-white border border-stone-200 text-[11px]">
+                      {tc.id}
+                    </span>
+                    <span className="font-bold text-stone-900">{tc.name}</span>
+                  </div>
+                  <p className="text-[11px] text-stone-600">
+                    <span className="font-medium text-stone-500">المتوقع: </span>{tc.expected} | <span className="font-medium text-stone-500">الفعلي: </span>{tc.actual}
+                  </p>
+                  {tc.notes && <p className="text-[10px] text-stone-500 italic">{tc.notes}</p>}
+                </div>
+
+                <div className="shrink-0 flex items-center gap-1.5">
+                  {tc.passed ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[11px]">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>اجتاز بنجاح</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 font-bold text-[11px]">
+                      <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                      <span>فشل الاختبار</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+      /* ==================================================================== */
+      /* 20 COLUMNS PREVIEW TABLE WITH ENTITY MATCHING BADGES */
+      /* ==================================================================== */
       <div className="bg-white border border-stone-200/90 rounded-2xl shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-right border-collapse text-xs">
@@ -816,6 +939,7 @@ export function LegacyMigrationView() {
           </table>
         </div>
       </div>
+      )}
 
       {/* ==================================================================== */}
       {/* MODAL: CANDIDATE MATCH REVIEW DIALOG */}

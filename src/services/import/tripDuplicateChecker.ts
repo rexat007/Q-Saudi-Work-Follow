@@ -23,62 +23,87 @@ export class ExcelCsvTripDuplicateChecker implements IImportDuplicateChecker {
       const canonical: Partial<CanonicalTripRow> =
         (row.mapped as any) || (row.canonical as any) || {};
 
-      const dupKey = this.extractDuplicateKey(canonical);
+      const dupKeys = this.extractDuplicateKeys(canonical);
 
-      if (!dupKey) {
+      if (dupKeys.length === 0) {
         return row;
       }
 
-      // 1. Check Batch internal duplicate
-      if (seenBatchKeys.has(dupKey)) {
-        const firstSeenRow = seenBatchKeys.get(dupKey)!;
-        return {
-          ...row,
-          duplicateInfo: {
-            isDuplicate: true,
-            duplicateWithRow: firstSeenRow,
-            duplicateKey: dupKey,
-            reason: `تكرار داخل نفس الملف مع الصف رقم (${firstSeenRow}) للمفتاح (${dupKey})`,
-          },
-          reviewStatus: 'requires_review',
-        };
+      // 1. Check Batch internal duplicate for any key
+      for (const key of dupKeys) {
+        if (seenBatchKeys.has(key)) {
+          const firstSeenRow = seenBatchKeys.get(key)!;
+          return {
+            ...row,
+            duplicateInfo: {
+              isDuplicate: true,
+              duplicateWithRow: firstSeenRow,
+              duplicateKey: key,
+              reason: `تكرار داخل نفس الملف مع الصف رقم (${firstSeenRow}) للمفتاح (${key})`,
+            },
+            reviewStatus: 'requires_review',
+          };
+        }
       }
-      seenBatchKeys.set(dupKey, row.rowNumber);
+
+      // Record all keys for this row
+      for (const key of dupKeys) {
+        seenBatchKeys.set(key, row.rowNumber);
+      }
 
       // 2. Check Database existing keys
       const rawTicketKey = canonical.ticketId ? String(canonical.ticketId).trim() : null;
-      if (
-        context.existingKeys &&
-        (context.existingKeys.has(dupKey) || (rawTicketKey && context.existingKeys.has(rawTicketKey)))
-      ) {
-        return {
-          ...row,
-          duplicateInfo: {
-            isDuplicate: true,
-            duplicateKey: dupKey,
-            reason: `المفتاح (${dupKey}) مسجل مسبقاً في قاعدة بيانات النظام`,
-          },
-          reviewStatus: 'requires_review',
-        };
+      const rawSerialKey = canonical.tripSerial !== undefined && canonical.tripSerial !== null ? String(canonical.tripSerial).trim() : null;
+      for (const key of dupKeys) {
+        if (
+          context.existingKeys &&
+          (context.existingKeys.has(key) ||
+            (rawTicketKey && context.existingKeys.has(rawTicketKey)) ||
+            (rawSerialKey && context.existingKeys.has(rawSerialKey)))
+        ) {
+          return {
+            ...row,
+            duplicateInfo: {
+              isDuplicate: true,
+              duplicateKey: key,
+              reason: `المفتاح (${key}) مسجل مسبقاً في قاعدة بيانات النظام`,
+            },
+            reviewStatus: 'requires_review',
+          };
+        }
       }
 
       return row;
     });
   }
 
-  private extractDuplicateKey(canonical: Partial<CanonicalTripRow>): string | null {
+  public extractDuplicateKeys(canonical: Partial<CanonicalTripRow>): string[] {
+    const keys: string[] = [];
+
     if (canonical.ticketId && String(canonical.ticketId).trim() !== '') {
       const rawTicket = String(canonical.ticketId).trim();
-      return rawTicket.startsWith('TKT-') ? rawTicket : `TKT-${rawTicket}`;
+      keys.push(rawTicket.startsWith('TKT-') ? rawTicket : `TKT-${rawTicket}`);
+    }
+
+    if (canonical.tripSerial !== undefined && canonical.tripSerial !== null && String(canonical.tripSerial).trim() !== '') {
+      const rawSerial = String(canonical.tripSerial).trim();
+      const proj = canonical.projectId ? `${canonical.projectId}-` : '';
+      keys.push(`SERIAL-${proj}${rawSerial}`);
+      keys.push(`SRL-${rawSerial}`);
     }
 
     if (canonical.truckNo && canonical.shiftDate) {
       const truck = String(canonical.truckNo).trim();
       const date = String(canonical.shiftDate).trim();
       const tare = canonical.tareWeight !== undefined ? canonical.tareWeight : '';
-      return `TRK-${truck}-${date}-${tare}`;
+      keys.push(`TRK-${truck}-${date}-${tare}`);
     }
 
-    return null;
+    return keys;
+  }
+
+  public extractDuplicateKey(canonical: Partial<CanonicalTripRow>): string | null {
+    const keys = this.extractDuplicateKeys(canonical);
+    return keys.length > 0 ? keys[0] : null;
   }
 }
