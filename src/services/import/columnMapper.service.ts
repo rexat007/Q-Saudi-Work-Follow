@@ -50,8 +50,8 @@ const CANONICAL_FIELD_DEFINITIONS: FieldAliasDefinition[] = [
   },
   {
     canonicalField: 'shiftDate',
-    exactNames: ['date', 'shiftdate', 'shift_date', 'tripdate', 'trip_date', 'التاريخ', 'تاريخ', 'تاريخ_الوردية'],
-    aliases: ['تاريخ الحركة', 'تاريخ الوردية', 'تاريخ الشحنة', 'تاريخ النقل', 'تاريخ اليوم', 'trip_day', 'log_date', 'entry_date'],
+    exactNames: ['date', 'shiftdate', 'shift_date', 'tripdate', 'trip_date', 'التاريخ', 'تاريخ', 'تاريخ_الوردية', 'تاريخ_الوزن', 'تاريخ_الميزان'],
+    aliases: ['تاريخ الحركة', 'تاريخ الوردية', 'تاريخ الشحنة', 'تاريخ النقل', 'تاريخ اليوم', 'تاريخ الوزن', 'تاريخ الميزان', 'trip_day', 'log_date', 'entry_date', 'weigh_date'],
   },
   {
     canonicalField: 'tareWeight',
@@ -87,6 +87,11 @@ const CANONICAL_FIELD_DEFINITIONS: FieldAliasDefinition[] = [
     canonicalField: 'pricingRule',
     exactNames: ['pricingrule', 'pricing_rule', 'rate', 'price', 'فئة_السعر', 'السعر'],
     aliases: ['سعر الطن', 'سعر الرد', 'فئة السعر', 'قاعدة التسعير', 'rate_sar', 'price_tier'],
+  },
+  {
+    canonicalField: 'loadTime',
+    exactNames: ['loadtime', 'load_time', 'weightime', 'weigh_time', 'time', 'الوقت', 'وقت_التحميل', 'وقت_الوزن'],
+    aliases: ['ساعة الوزن', 'وقت الحركة', 'زمن التحميل', 'وقت التحميل', 'time_in', 'ساعة التحميل'],
   },
   {
     canonicalField: 'weighTime',

@@ -19,7 +19,7 @@ import {
   PipelineContext,
   ImportIssue,
 } from '../../types/unifiedImport';
-import { TripEntity, TripStatus, OperationSourceType } from '../../types/entities';
+import { TripEntity, TripStatus, OperationSourceType, OperationActorType } from '../../types/entities';
 import { CanonicalTripRow } from '../../types/excelCsvImport';
 import { UnifiedImportValidator } from '../../validators/unifiedImport.validator';
 import { tripRepository } from '../../repositories/trip.repository';
@@ -140,12 +140,50 @@ export class ExcelCsvTripCommitter implements IImportCommitter {
 
       // Check if weighbridge compatible
       const isWeighbridge =
+        batch.source.sourceType === 'WEIGHBRIDGE' ||
         canonical.isWeighbridgeOnly ||
         (canonical.tareWeight && canonical.grossWeight && !canonical.destNetWeight);
 
       const loadingSource: OperationSourceType = isWeighbridge
         ? 'WEIGHBRIDGE'
         : (batch.source.sourceType as OperationSourceType);
+
+      // BLOCK 34 Rules 10-15: Explicit acceptance of origin net as destination
+      const isAcceptedOrigin =
+        canonical.unloadDecision === 'ACCEPT_ORIGIN_NET_AS_DESTINATION' ||
+        canonical.isAcceptedOriginNet === true;
+
+      const unloadingSource: OperationSourceType | null = isAcceptedOrigin
+        ? 'WEIGHBRIDGE'
+        : canonical.destNetWeight
+        ? (batch.source.sourceType as OperationSourceType)
+        : null;
+
+      const unloadingActorType: OperationActorType | null = isAcceptedOrigin
+        ? 'USER'
+        : canonical.destNetWeight
+        ? 'IMPORT'
+        : null;
+
+      const unloadingActorId: string | null = isAcceptedOrigin
+        ? canonical.unloadingActorId || context.userId
+        : canonical.destNetWeight
+        ? context.userId
+        : null;
+
+      // BLOCK 34 Rule 26: Never guess pricing if missing or ambiguous
+      const hasExplicitPricing = !!canonical.pricingRule;
+      const resolvedRate = hasExplicitPricing
+        ? (canonical.tripRate ?? 35)
+        : (canonical.tripRate ?? 0);
+      const pricingRuleId = hasExplicitPricing
+        ? canonical.pricingRule!
+        : 'UNRESOLVED_PENDING';
+      const pricingType = hasExplicitPricing ? 'PER_TON' : 'LEGACY_UNRESOLVED';
+      const netTons = (canonical.netWeight || 0) / 1000;
+      const baseAmountSAR = hasExplicitPricing ? netTons * resolvedRate : 0;
+      const vatAmountSAR = hasExplicitPricing ? baseAmountSAR * 0.15 : 0;
+      const totalAmountSAR = hasExplicitPricing ? baseAmountSAR + vatAmountSAR : 0;
 
       const newTrip: Omit<TripEntity, 'createdAt' | 'updatedAt'> & {
         createdBy: string;
@@ -158,16 +196,16 @@ export class ExcelCsvTripCommitter implements IImportCommitter {
         truckId: canonical.truckId || `TRUCK-${canonical.truckNo || 'DEFAULT'}`,
         driverId: canonical.driverId || `DRIVER-${canonical.driverName || 'UNASSIGNED'}`,
         materialId: canonical.materialId || `MAT-${canonical.materialType || 'GENERAL'}`,
-        pricingRuleId: canonical.pricingRule || 'RULE-STANDARD-TON',
+        pricingRuleId,
 
         // Operation Source Model (BLOCK 29)
-        sourceType: batch.source.sourceType as OperationSourceType,
+        sourceType: (batch.source.sourceType as OperationSourceType) || 'WEIGHBRIDGE',
         loadingDataSource: loadingSource,
-        unloadingDataSource: canonical.destNetWeight ? batch.source.sourceType : null,
+        unloadingDataSource: unloadingSource,
         loadingActorType: 'IMPORT',
         loadingActorId: context.userId,
-        unloadingActorType: canonical.destNetWeight ? 'IMPORT' : null,
-        unloadingActorId: canonical.destNetWeight ? context.userId : null,
+        unloadingActorType,
+        unloadingActorId,
         sourceMetadata: {
           importBatchId: batch.importBatchId,
           sourceFileId: batch.source.sourceFileId,
@@ -202,17 +240,17 @@ export class ExcelCsvTripCommitter implements IImportCommitter {
           unitOfMeasure: 'TON',
         },
         pricingSnapshot: {
-          pricingRuleId: canonical.pricingRule || 'RULE-STANDARD-TON',
-          pricingType: 'PER_TON',
-          agreedRate: 35,
+          pricingRuleId,
+          pricingType,
+          agreedRate: resolvedRate,
           currency: 'SAR',
-          settlementBase: (canonical.netWeight || 0) / 1000,
-          settlementAmount: ((canonical.netWeight || 0) / 1000) * 35,
+          settlementBase: netTons,
+          settlementAmount: baseAmountSAR,
           pricingSnapshotAt: new Date().toISOString(),
-          pricingModel: 'PER_TON',
-          baseRateSAR: 35,
-          vatApplicable: true,
-          vatRatePercent: 15,
+          pricingModel: pricingType,
+          baseRateSAR: resolvedRate,
+          vatApplicable: hasExplicitPricing,
+          vatRatePercent: hasExplicitPricing ? 15 : 0,
         },
 
         status: initialStatus,
@@ -224,24 +262,24 @@ export class ExcelCsvTripCommitter implements IImportCommitter {
           originNetKg: canonical.netWeight,
           originTicketNo: canonical.ticketId,
           destinationNetKg: canonical.destNetWeight,
-          billableWeightKg: canonical.netWeight,
+          billableWeightKg: canonical.destNetWeight || canonical.netWeight,
         },
 
         financials: {
-          baseAmountSAR: ((canonical.netWeight || 0) / 1000) * 35,
+          baseAmountSAR,
           demurrageAmountSAR: 0,
           deductionsAmountSAR: 0,
-          subtotalSAR: ((canonical.netWeight || 0) / 1000) * 35,
-          vatAmountSAR: ((canonical.netWeight || 0) / 1000) * 35 * 0.15,
-          totalAmountSAR: ((canonical.netWeight || 0) / 1000) * 35 * 1.15,
+          subtotalSAR: baseAmountSAR,
+          vatAmountSAR,
+          totalAmountSAR,
           currency: 'SAR',
-          isFinalized: false,
+          isFinalized: hasExplicitPricing,
         },
 
         clientUUID: `CUUID-IMP-${batch.importBatchId}-${row.rowNumber}`,
         syncStatus: 'SYNCED',
-        hasExceptions: false,
-        activeExceptionCount: 0,
+        hasExceptions: !hasExplicitPricing,
+        activeExceptionCount: hasExplicitPricing ? 0 : 1,
         createdBy: context.userId,
         updatedBy: context.userId,
       };

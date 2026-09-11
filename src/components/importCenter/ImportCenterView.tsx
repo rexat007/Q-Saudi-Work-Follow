@@ -29,7 +29,8 @@ import {
   AlertCircle,
   HelpCircle,
   Clock,
-  HardDrive
+  HardDrive,
+  Scale
 } from 'lucide-react';
 import { 
   ImportBatch, 
@@ -45,10 +46,11 @@ import { UnifiedImportArchitectureSection } from './UnifiedImportArchitectureSec
 import { ExcelCsvImportSection } from './ExcelCsvImportSection';
 import { GoogleDriveImportSection } from './GoogleDriveImportSection';
 import { GoogleSheetsImportSection } from './GoogleSheetsImportSection';
+import { WeighbridgeImportSection } from './WeighbridgeImportSection';
 
 export function ImportCenterView() {
-  // Navigation between Active Batch UI, Unified Architecture, Excel/CSV, Google Drive, and Google Sheets
-  const [centerSubTab, setCenterSubTab] = useState<'GOOGLE_SHEETS_IMPORT' | 'GOOGLE_DRIVE_IMPORT' | 'EXCEL_CSV_IMPORT' | 'UNIFIED_ARCHITECTURE' | 'ACTIVE_BATCH'>('GOOGLE_SHEETS_IMPORT');
+  // Navigation between Weighbridge, Google Sheets, Google Drive, Excel/CSV, Unified Architecture, and Active Batch
+  const [centerSubTab, setCenterSubTab] = useState<'WEIGHBRIDGE_IMPORT' | 'GOOGLE_SHEETS_IMPORT' | 'GOOGLE_DRIVE_IMPORT' | 'EXCEL_CSV_IMPORT' | 'UNIFIED_ARCHITECTURE' | 'ACTIVE_BATCH'>('WEIGHBRIDGE_IMPORT');
 
   // Active batch state
   const [activeBatch, setActiveBatch] = useState<ImportBatch>(createInitialSampleBatch);
@@ -306,6 +308,18 @@ export function ImportCenterView() {
       {/* Sub-navigation tabs */}
       <div className="flex items-center gap-2 border-b border-stone-200/80 pb-3 flex-wrap">
         <button
+          onClick={() => setCenterSubTab('WEIGHBRIDGE_IMPORT')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            centerSubTab === 'WEIGHBRIDGE_IMPORT'
+              ? 'bg-stone-900 text-white shadow-xs'
+              : 'bg-white text-stone-600 hover:bg-stone-100 border border-stone-200'
+          }`}
+        >
+          <Scale className="w-3.5 h-3.5 text-amber-400" />
+          <span>استيراد الميزان (BLOCK 34 Weighbridge)</span>
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-500 text-stone-950 font-black">Weighbridge</span>
+        </button>
+        <button
           onClick={() => setCenterSubTab('GOOGLE_SHEETS_IMPORT')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
             centerSubTab === 'GOOGLE_SHEETS_IMPORT'
@@ -364,7 +378,9 @@ export function ImportCenterView() {
         </button>
       </div>
 
-      {centerSubTab === 'GOOGLE_SHEETS_IMPORT' ? (
+      {centerSubTab === 'WEIGHBRIDGE_IMPORT' ? (
+        <WeighbridgeImportSection projectId="PRJ-NEOM-NORTH-01" />
+      ) : centerSubTab === 'GOOGLE_SHEETS_IMPORT' ? (
         <GoogleSheetsImportSection projectId="PRJ-NEOM-NORTH-01" />
       ) : centerSubTab === 'GOOGLE_DRIVE_IMPORT' ? (
         <GoogleDriveImportSection />

@@ -34,22 +34,101 @@ export class ExcelCsvTripValidator implements IImportValidator<CanonicalTripRow>
 
     const rowNum = row.rowNumber;
 
-    // 1. Mandatory Identification Check (BLOCKING)
-    const hasTicket = canonical.ticketId && String(canonical.ticketId).trim() !== '';
-    const hasTruck = canonical.truckNo && String(canonical.truckNo).trim() !== '';
+    // 1. Weighbridge Profile vs Standard Intake Checks
+    const isWeighbridge =
+      context.profile === 'WEIGHBRIDGE' ||
+      canonical.isWeighbridgeOnly ||
+      (canonical.sourceType as string) === 'WEIGHBRIDGE';
 
-    if (!hasTicket && !hasTruck) {
-      issues.push({
-        issueId: `ERR-ID-${rowNum}`,
-        row: rowNum,
-        field: 'identification',
-        code: 'MISSING_IDENTIFICATION',
-        severity: 'BLOCKING',
-        message: 'Missing both Ticket ID and Truck Plate. At least one required.',
-        messageAr: 'بيانات التعريف مفقودة: يجب توفر رقم التذكرة أو رقم اللوحة على الأقل.',
-        resolvable: true,
-        blocking: true,
-      });
+    if (isWeighbridge) {
+      // Weighbridge Input Profile Mandatory Fields
+      if (!canonical.ticketId || String(canonical.ticketId).trim() === '') {
+        issues.push({
+          issueId: `ERR-WB-TICKET-${rowNum}`,
+          row: rowNum,
+          field: 'ticketId',
+          code: 'MISSING_TICKET_ID',
+          severity: 'BLOCKING',
+          message: 'Ticket ID is required for weighbridge intake.',
+          messageAr: 'رقم تذكرة الميزان إلزامي لاعتماد بيانات الميزان.',
+          resolvable: true,
+          blocking: true,
+        });
+      }
+
+      if (!canonical.truckNo || String(canonical.truckNo).trim() === '') {
+        issues.push({
+          issueId: `ERR-WB-TRUCK-${rowNum}`,
+          row: rowNum,
+          field: 'truckNo',
+          code: 'MISSING_TRUCK_NO',
+          severity: 'BLOCKING',
+          message: 'Truck number / plate is required for weighbridge intake.',
+          messageAr: 'رقم لوحة / تعريف الشاحنة إلزامي لاعتماد بيانات الميزان.',
+          resolvable: true,
+          blocking: true,
+        });
+      }
+
+      if (!canonical.shiftDate || String(canonical.shiftDate).trim() === '') {
+        issues.push({
+          issueId: `ERR-WB-DATE-${rowNum}`,
+          row: rowNum,
+          field: 'shiftDate',
+          code: 'MISSING_DATE',
+          severity: 'BLOCKING',
+          message: 'Shift date is required for weighbridge intake.',
+          messageAr: 'تاريخ عملية الوزن إلزامي لاعتماد بيانات الميزان.',
+          resolvable: true,
+          blocking: true,
+        });
+      }
+
+      if (canonical.tareWeight === undefined || canonical.tareWeight === null) {
+        issues.push({
+          issueId: `ERR-WB-TARE-${rowNum}`,
+          row: rowNum,
+          field: 'tareWeight',
+          code: 'MISSING_TARE_WEIGHT',
+          severity: 'BLOCKING',
+          message: 'Tare weight is required for weighbridge intake.',
+          messageAr: 'وزن الفارغ إلزامي لاعتماد بيانات الميزان.',
+          resolvable: true,
+          blocking: true,
+        });
+      }
+
+      if (canonical.grossWeight === undefined || canonical.grossWeight === null) {
+        issues.push({
+          issueId: `ERR-WB-GROSS-${rowNum}`,
+          row: rowNum,
+          field: 'grossWeight',
+          code: 'MISSING_GROSS_WEIGHT',
+          severity: 'BLOCKING',
+          message: 'Gross weight is required for weighbridge intake.',
+          messageAr: 'وزن القائم إلزامي لاعتماد بيانات الميزان.',
+          resolvable: true,
+          blocking: true,
+        });
+      }
+    } else {
+      // Standard Identification Check (BLOCKING)
+      const hasTicket = canonical.ticketId && String(canonical.ticketId).trim() !== '';
+      const hasTruck = canonical.truckNo && String(canonical.truckNo).trim() !== '';
+
+      if (!hasTicket && !hasTruck) {
+        issues.push({
+          issueId: `ERR-ID-${rowNum}`,
+          row: rowNum,
+          field: 'identification',
+          code: 'MISSING_IDENTIFICATION',
+          severity: 'BLOCKING',
+          message: 'Missing both Ticket ID and Truck Plate. At least one required.',
+          messageAr: 'بيانات التعريف مفقودة: يجب توفر رقم التذكرة أو رقم اللوحة على الأقل.',
+          resolvable: true,
+          blocking: true,
+        });
+      }
     }
 
     // 2. Numeric Weights Validation (BLOCKING if negative, unparseable, or gross < tare)
@@ -71,15 +150,15 @@ export class ExcelCsvTripValidator implements IImportValidator<CanonicalTripRow>
           blocking: true,
           originalValue: tare,
         });
-      } else if (tare < 0) {
+      } else if (tare <= 0) {
         issues.push({
-          issueId: `ERR-TARE-NEG-${rowNum}`,
+          issueId: `ERR-TARE-NONPOS-${rowNum}`,
           row: rowNum,
           field: 'tareWeight',
-          code: 'NEGATIVE_WEIGHT',
+          code: 'TARE_WEIGHT_NON_POSITIVE',
           severity: 'BLOCKING',
-          message: 'Tare weight cannot be negative',
-          messageAr: 'الوزن الفارغ لا يمكن أن يكون سالباً',
+          message: 'Tare weight must be strictly positive',
+          messageAr: 'الوزن الفارغ يجب أن يكون أكبر من الصفر',
           resolvable: true,
           blocking: true,
           originalValue: tare,
@@ -101,15 +180,15 @@ export class ExcelCsvTripValidator implements IImportValidator<CanonicalTripRow>
           blocking: true,
           originalValue: gross,
         });
-      } else if (gross < 0) {
+      } else if (gross <= 0) {
         issues.push({
-          issueId: `ERR-GROSS-NEG-${rowNum}`,
+          issueId: `ERR-GROSS-NONPOS-${rowNum}`,
           row: rowNum,
           field: 'grossWeight',
-          code: 'NEGATIVE_WEIGHT',
+          code: 'GROSS_WEIGHT_NON_POSITIVE',
           severity: 'BLOCKING',
-          message: 'Gross weight cannot be negative',
-          messageAr: 'الوزن الإجمالي لا يمكن أن يكون سالباً',
+          message: 'Gross weight must be strictly positive',
+          messageAr: 'الوزن الإجمالي لا يمكن أن يكون سالباً أو صفراً',
           resolvable: true,
           blocking: true,
           originalValue: gross,
@@ -322,6 +401,37 @@ export class ExcelCsvTripValidator implements IImportValidator<CanonicalTripRow>
           blocking: false,
           originalValue: matStr,
         });
+      }
+    }
+
+    // 7. BLOCK 34 Rule 19: Truck-Carrier Association Integrity Check (WARNING - REQUIRES_REVIEW)
+    if (canonical.truckNo && canonical.carrier && context.knownEntities?.truckCarrierMap) {
+      const cleanTruck = String(canonical.truckNo).trim();
+      // Match case-insensitively across map keys
+      const mapKey = Object.keys(context.knownEntities.truckCarrierMap).find(
+        (k) => k.toLowerCase() === cleanTruck.toLowerCase()
+      );
+      if (mapKey) {
+        const expectedCarrier = context.knownEntities.truckCarrierMap[mapKey];
+        const cleanCarrier = String(canonical.carrier).trim();
+        if (expectedCarrier && expectedCarrier.toLowerCase() !== cleanCarrier.toLowerCase()) {
+          issues.push({
+            issueId: `WRN-TRUCK-CARRIER-${rowNum}`,
+            row: rowNum,
+            field: 'carrier',
+            code: 'TRUCK_CARRIER_MISMATCH',
+            severity: 'WARNING',
+            message: `Truck (${cleanTruck}) is assigned to carrier (${expectedCarrier}) in master records, but row lists carrier (${cleanCarrier}).`,
+            messageAr: `الشاحنة (${cleanTruck}) مرتبطة في السجلات بالناقل (${expectedCarrier}) بينما السجل الوارد ينسبها للناقل (${cleanCarrier}).`,
+            resolvable: true,
+            blocking: false,
+            originalValue: {
+              truckNo: cleanTruck,
+              rowCarrier: cleanCarrier,
+              masterCarrier: expectedCarrier,
+            },
+          });
+        }
       }
     }
 

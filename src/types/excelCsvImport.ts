@@ -39,9 +39,17 @@ export interface CanonicalTripRow {
   unloader?: string;
   pricingRule?: string;
   weighTime?: string;
+  loadTime?: string;
   unloadTime?: string;
   note?: string;
   isWeighbridgeOnly?: boolean;
+  unloadDecision?: 'ACCEPT_ORIGIN_NET_AS_DESTINATION' | string;
+  unloadingActorType?: 'USER' | 'IMPORT' | 'SYSTEM' | string;
+  unloadingActorId?: string;
+  unloadingDataSource?: 'WEIGHBRIDGE' | string;
+  isAcceptedOriginNet?: boolean;
+  isCalculatedNet?: boolean;
+  netWeightSource?: 'SUPPLIED' | 'CALCULATED';
   [key: string]: any;
 }
 

@@ -248,10 +248,13 @@ export interface PipelineContext {
   allowWarningsCommit?: boolean;
   warningConfirmationNotes?: string;
   existingKeys?: Set<string>;
+  profile?: 'STANDARD' | 'WEIGHBRIDGE' | string;
   knownEntities?: {
     carrierIds?: string[];
     truckPlates?: string[];
     driverIds?: string[];
     materialCodes?: string[];
+    truckCarrierMap?: Record<string, string>;
   };
+  pricingRules?: Record<string, any>;
 }

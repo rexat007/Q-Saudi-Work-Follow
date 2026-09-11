@@ -51,18 +51,33 @@ export class ExcelCsvNormalizer implements IImportNormalizer<Record<string, any>
     const gross = normalized.grossWeight ?? normalized.gross ?? normalized['قائم'] ?? normalized['الوزن القائم'];
     const net = normalized.netWeight ?? normalized.net ?? normalized['الصافي'] ?? normalized['الوزن الصافي'];
 
-    if (net === null || net === undefined) {
-      if (typeof gross === 'number' && typeof tare === 'number' && !isNaN(gross) && !isNaN(tare)) {
-        normalized.netWeight = Math.round((gross - tare) * 100) / 100;
-      }
+    if (net !== null && net !== undefined && typeof net === 'number' && !isNaN(net)) {
+      normalized.netWeightSource = 'SUPPLIED';
+      normalized.isCalculatedNet = false;
+    } else if (typeof gross === 'number' && typeof tare === 'number' && !isNaN(gross) && !isNaN(tare)) {
+      normalized.netWeight = Math.round((gross - tare) * 100) / 100;
+      normalized.netWeightSource = 'CALCULATED';
+      normalized.isCalculatedNet = true;
+    } else {
+      normalized.netWeight = null;
+      normalized.isCalculatedNet = false;
     }
 
-    // BLOCK 33 Weighbridge Rule: If destination net weight is missing, ensure destNetWeight = null, varianceWeight = null (do NOT create fake 0 variance)
+    // BLOCK 33/34 Weighbridge Rule: If destination net weight is missing, ensure destNetWeight = null, varianceWeight = null (do NOT create fake 0 variance)
     if (normalized.destNetWeight === undefined) {
       normalized.destNetWeight = null;
     }
     if (normalized.varianceWeight === undefined) {
       normalized.varianceWeight = null;
+    }
+
+    // BLOCK 34 Rule 25: Load Time preservation rule
+    // If loadTime was present, preserve it; if absent, keep null. Never invent or use createdAt!
+    if (normalized.loadTime === undefined) {
+      normalized.loadTime = normalized.weighTime ?? null;
+    }
+    if (normalized.unloadTime === undefined) {
+      normalized.unloadTime = null;
     }
 
     return normalized;
