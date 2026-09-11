@@ -844,6 +844,16 @@ class TripEngineService {
       settlementBase,
       settlementAmount,
 
+      // Operation Source Model (BLOCK 29)
+      sourceType: params.sourceType || 'MANUAL',
+      loadingDataSource: params.loadingDataSource || (params.sourceType === 'WEIGHBRIDGE' ? 'WEIGHBRIDGE' : 'MANUAL'),
+      unloadingDataSource: params.unloadingDataSource ?? (params.sourceType === 'WEIGHBRIDGE' ? null : (params.sourceType ? null : 'MANUAL')),
+      loadingActorType: params.loadingActorType || (params.sourceType === 'WEIGHBRIDGE' ? 'IMPORT' : 'USER'),
+      loadingActorId: params.loadingActorId ?? (params.loaderId || 'SCALE-OP-01'),
+      unloadingActorType: params.unloadingActorType ?? null,
+      unloadingActorId: params.unloadingActorId ?? null,
+      sourceMetadata: params.sourceMetadata,
+
       loaderId: params.loaderId || 'SCALE-OP-01',
       unloaderId: null,
 
@@ -1029,6 +1039,16 @@ class TripEngineService {
       settlementBase,
       settlementAmount,
 
+      // Operation Source Model (BLOCK 29)
+      sourceType: params.sourceType || 'MANUAL',
+      loadingDataSource: params.loadingDataSource || (params.sourceType === 'WEIGHBRIDGE' ? 'WEIGHBRIDGE' : 'MANUAL'),
+      unloadingDataSource: params.unloadingDataSource ?? (params.sourceType === 'WEIGHBRIDGE' ? null : (params.sourceType ? null : 'MANUAL')),
+      loadingActorType: params.loadingActorType || (params.sourceType === 'WEIGHBRIDGE' ? 'IMPORT' : 'USER'),
+      loadingActorId: params.loadingActorId ?? (params.loaderId || 'SCALE-OP-01'),
+      unloadingActorType: params.unloadingActorType ?? null,
+      unloadingActorId: params.unloadingActorId ?? null,
+      sourceMetadata: params.sourceMetadata,
+
       loaderId: params.loaderId || 'SCALE-OP-01',
       unloaderId: null,
 
@@ -1210,6 +1230,15 @@ class TripEngineService {
     }
 
     const { updatedTrip } = tripStateMachine.transition(trip, 'COMPLETED', context, payload);
+    if (params.unloadingDataSource !== undefined) {
+      updatedTrip.unloadingDataSource = params.unloadingDataSource;
+    }
+    if (params.unloadingActorType !== undefined) {
+      updatedTrip.unloadingActorType = params.unloadingActorType;
+    }
+    if (params.unloadingActorId !== undefined) {
+      updatedTrip.unloadingActorId = params.unloadingActorId;
+    }
     this.trips[tripIndex] = updatedTrip;
     return updatedTrip;
   }

@@ -97,3 +97,7 @@ export interface ImportBatch {
   committedBy?: string;
   committedRecordCount?: number;
 }
+
+// Re-export Unified Import Domain Model (BLOCK 30 & 31)
+export * from './unifiedImport';
+export * from './excelCsvImport';

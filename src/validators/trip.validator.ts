@@ -1,5 +1,6 @@
 import { TripEntity, TripStatus } from '../types/entities';
 import { ValidationResult, ValidationError } from '../types/common';
+import { OperationSourceValidator } from './operationSource.validator';
 
 export const ALLOWED_TRIP_TRANSITIONS: Record<TripStatus, TripStatus[]> = {
   DRAFT: ['DISPATCHED', 'CANCELLED'],
@@ -77,6 +78,22 @@ export class TripValidator {
           });
         }
       }
+    }
+
+    // Operation Source Model Validation (BLOCK 29)
+    const sourceValidation = OperationSourceValidator.validate({
+      sourceType: trip.sourceType,
+      loadingDataSource: trip.loadingDataSource,
+      unloadingDataSource: trip.unloadingDataSource,
+      loadingActorType: trip.loadingActorType,
+      loadingActorId: trip.loadingActorId,
+      unloadingActorType: trip.unloadingActorType,
+      unloadingActorId: trip.unloadingActorId,
+      sourceMetadata: trip.sourceMetadata,
+      status: trip.status,
+    });
+    if (!sourceValidation.isValid) {
+      errors.push(...sourceValidation.errors);
     }
 
     return {

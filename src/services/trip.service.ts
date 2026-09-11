@@ -1,6 +1,6 @@
 import { tripRepository } from '../repositories/trip.repository';
 import { TripValidator } from '../validators/trip.validator';
-import { TripEntity, TripStatus } from '../types/entities';
+import { TripEntity, TripStatus, OperationSourceType, OperationActorType, TripSourceMetadata } from '../types/entities';
 import { AuthUserContext } from '../types/common';
 import { auditLogService } from './auditLog.service';
 import { tripEventService } from './tripEvent.service';
@@ -19,6 +19,14 @@ export interface DispatchTripParams {
   materialId: string;
   pricingRuleId: string;
   clientUUID?: string;
+  sourceType?: OperationSourceType;
+  loadingDataSource?: OperationSourceType;
+  unloadingDataSource?: OperationSourceType | null;
+  loadingActorType?: OperationActorType;
+  loadingActorId?: string | null;
+  unloadingActorType?: OperationActorType | null;
+  unloadingActorId?: string | null;
+  sourceMetadata?: TripSourceMetadata;
 }
 
 export class TripService {
@@ -138,6 +146,16 @@ export class TripService {
       },
 
       status: 'DISPATCHED',
+
+      // Operation Source Model (BLOCK 29)
+      sourceType: params.sourceType || 'MANUAL',
+      loadingDataSource: params.loadingDataSource || (params.sourceType === 'WEIGHBRIDGE' ? 'WEIGHBRIDGE' : 'MANUAL'),
+      unloadingDataSource: params.unloadingDataSource ?? (params.sourceType === 'WEIGHBRIDGE' ? null : (params.sourceType ? null : 'MANUAL')),
+      loadingActorType: params.loadingActorType || (params.sourceType === 'WEIGHBRIDGE' ? 'IMPORT' : 'USER'),
+      loadingActorId: params.loadingActorId ?? context.userId,
+      unloadingActorType: params.unloadingActorType ?? null,
+      unloadingActorId: params.unloadingActorId ?? null,
+      sourceMetadata: params.sourceMetadata,
 
       weights: {},
 

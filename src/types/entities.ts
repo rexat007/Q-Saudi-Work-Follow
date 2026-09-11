@@ -141,6 +141,31 @@ export interface UserEntity extends BaseAuditedEntity {
   isActive: boolean;
 }
 
+// Operation Source Model (BLOCK 29)
+export type OperationSourceType =
+  | 'MANUAL'
+  | 'WEIGHBRIDGE'
+  | 'EXCEL'
+  | 'CSV'
+  | 'GOOGLE_SHEETS'
+  | 'GOOGLE_DRIVE'
+  | 'API'
+  | 'MIGRATION';
+
+export type OperationActorType =
+  | 'USER'
+  | 'IMPORT'
+  | 'SYSTEM';
+
+export interface TripSourceMetadata {
+  importBatchId?: string;
+  sourceFileId?: string;
+  sourceFileName?: string;
+  sourceSheetName?: string;
+  sourceRowId?: string | number;
+  sourceMimeType?: string;
+}
+
 // 8. Trip Entity
 export type TripStatus = 
   | 'DRAFT'
@@ -165,6 +190,16 @@ export interface TripEntity extends BaseAuditedEntity {
   driverId: string;
   materialId: string;
   pricingRuleId: string;
+
+  // Operation Source Model (BLOCK 29)
+  sourceType?: OperationSourceType;
+  loadingDataSource?: OperationSourceType;
+  unloadingDataSource?: OperationSourceType | null;
+  loadingActorType?: OperationActorType;
+  loadingActorId?: string | null;
+  unloadingActorType?: OperationActorType | null;
+  unloadingActorId?: string | null;
+  sourceMetadata?: TripSourceMetadata;
 
   // Snapshots (Historical immutability)
   carrierSnapshot: {
@@ -259,6 +294,9 @@ export interface TripEventEntity extends BaseAuditedEntity {
     | 'EVENT_TRIP_COMPLETED'
     | 'EVENT_EXCEPTION_RAISED';
   statusResulting: TripStatus;
+  sourceType?: OperationSourceType;
+  actorType?: OperationActorType;
+  sourceMetadata?: TripSourceMetadata;
   actor: {
     userId: string;
     role: string;
@@ -326,9 +364,9 @@ export interface TripExceptionEntity extends BaseAuditedEntity {
 export interface AuditLogEntity extends BaseAuditedEntity {
   auditLogId: string;
   projectId: string;
-  entityType: 'TRIP' | 'PRICING_RULE' | 'TRUCK' | 'CARRIER' | 'PROJECT' | 'USER_ROLE' | 'FINANCIAL_ADJUSTMENT' | 'EXCEPTION' | 'MIGRATION_BATCH';
+  entityType: 'TRIP' | 'PRICING_RULE' | 'TRUCK' | 'CARRIER' | 'PROJECT' | 'USER_ROLE' | 'FINANCIAL_ADJUSTMENT' | 'EXCEPTION' | 'MIGRATION_BATCH' | 'IMPORT_BATCH';
   entityId: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'FORCE_STATUS_CHANGE' | 'RECALCULATE_PRICING' | 'WAIVE_EXCEPTION' | 'COMMIT_LEGACY_MIGRATION';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'FORCE_STATUS_CHANGE' | 'RECALCULATE_PRICING' | 'WAIVE_EXCEPTION' | 'COMMIT_LEGACY_MIGRATION' | 'COMMIT_IMPORT_BATCH';
   actor: {
     userId: string;
     email: string;

@@ -40,8 +40,13 @@ import {
 import { ImportCenterService } from '../../services/dataQuality/importCenterService';
 import { SAMPLE_QUALITY_CONTEXT } from '../../data/sampleQualityData';
 import { SAMPLE_RAW_CSV_TEXT, createInitialSampleBatch } from '../../data/sampleImportBatches';
+import { UnifiedImportArchitectureSection } from './UnifiedImportArchitectureSection';
+import { ExcelCsvImportSection } from './ExcelCsvImportSection';
 
 export function ImportCenterView() {
+  // Navigation between Active Batch UI, BLOCK 30 Unified Architecture, and BLOCK 31 Excel/CSV
+  const [centerSubTab, setCenterSubTab] = useState<'EXCEL_CSV_IMPORT' | 'UNIFIED_ARCHITECTURE' | 'ACTIVE_BATCH'>('EXCEL_CSV_IMPORT');
+
   // Active batch state
   const [activeBatch, setActiveBatch] = useState<ImportBatch>(createInitialSampleBatch);
   const [batchHistory, setBatchHistory] = useState<ImportBatch[]>([createInitialSampleBatch()]);
@@ -295,8 +300,51 @@ export function ImportCenterView() {
 
   return (
     <div className="space-y-6">
-      {/* 1. TOP HEADER & CONTROLS */}
-      <div className="bg-white border border-stone-200/80 rounded-2xl p-5 sm:p-6 shadow-xs">
+      {/* Sub-navigation tabs */}
+      <div className="flex items-center gap-2 border-b border-stone-200/80 pb-3 flex-wrap">
+        <button
+          onClick={() => setCenterSubTab('EXCEL_CSV_IMPORT')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            centerSubTab === 'EXCEL_CSV_IMPORT'
+              ? 'bg-stone-900 text-white shadow-xs'
+              : 'bg-white text-stone-600 hover:bg-stone-100 border border-stone-200'
+          }`}
+        >
+          <FileSpreadsheet className="w-3.5 h-3.5" />
+          <span>استيراد ملفات Excel / CSV (BLOCK 31)</span>
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-400 text-stone-950 font-black">XLSX / XLS / CSV</span>
+        </button>
+        <button
+          onClick={() => setCenterSubTab('UNIFIED_ARCHITECTURE')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            centerSubTab === 'UNIFIED_ARCHITECTURE'
+              ? 'bg-stone-900 text-white shadow-xs'
+              : 'bg-white text-stone-600 hover:bg-stone-100 border border-stone-200'
+          }`}
+        >
+          <span>معمارية الاستيراد الموحد (BLOCK 30 Unified Architecture)</span>
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-400 text-stone-950 font-black">10 Stages</span>
+        </button>
+        <button
+          onClick={() => setCenterSubTab('ACTIVE_BATCH')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            centerSubTab === 'ACTIVE_BATCH'
+              ? 'bg-stone-900 text-white shadow-xs'
+              : 'bg-white text-stone-600 hover:bg-stone-100 border border-stone-200'
+          }`}
+        >
+          استعراض ومراجعة الدفعة النشطة (Active Batch Review)
+        </button>
+      </div>
+
+      {centerSubTab === 'EXCEL_CSV_IMPORT' ? (
+        <ExcelCsvImportSection />
+      ) : centerSubTab === 'UNIFIED_ARCHITECTURE' ? (
+        <UnifiedImportArchitectureSection />
+      ) : (
+        <>
+          {/* 1. TOP HEADER & CONTROLS */}
+          <div className="bg-white border border-stone-200/80 rounded-2xl p-5 sm:p-6 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-start sm:items-center gap-3.5">
             <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 flex items-center justify-center shrink-0 shadow-xs">
@@ -1283,6 +1331,8 @@ export function ImportCenterView() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

@@ -8,6 +8,10 @@
  * - Historical pricing snapshot storage
  */
 
+import { OperationSourceType, OperationActorType, TripSourceMetadata } from './entities';
+
+export type { OperationSourceType, OperationActorType, TripSourceMetadata };
+
 export type TripPricingType = 'PER_TON' | 'PER_TRIP';
 
 export type TripEngineStatus = 
@@ -41,6 +45,9 @@ export interface TripLifecycleEvent {
   actorName: string;
   projectId: string;
   timestamp: string;
+  sourceType?: OperationSourceType;
+  actorType?: OperationActorType;
+  sourceMetadata?: TripSourceMetadata;
   reason?: string;
   payload?: Record<string, any>;
   version: number;
@@ -139,6 +146,16 @@ export interface TripRecord {
   carrierId: string;
   materialId: string;
   shiftDate: string; // YYYY-MM-DD
+
+  // Operation Source Model (BLOCK 29)
+  sourceType?: OperationSourceType;
+  loadingDataSource?: OperationSourceType;
+  unloadingDataSource?: OperationSourceType | null;
+  loadingActorType?: OperationActorType;
+  loadingActorId?: string | null;
+  unloadingActorType?: OperationActorType | null;
+  unloadingActorId?: string | null;
+  sourceMetadata?: TripSourceMetadata;
 
   // Origin Weights (KG)
   tareWeight: number;
@@ -239,6 +256,16 @@ export interface CreateTripParams {
   loaderId?: string | null;
   notes?: string;
   createdBy?: string;
+
+  // Operation Source Model (BLOCK 29)
+  sourceType?: OperationSourceType;
+  loadingDataSource?: OperationSourceType;
+  unloadingDataSource?: OperationSourceType | null;
+  loadingActorType?: OperationActorType;
+  loadingActorId?: string | null;
+  unloadingActorType?: OperationActorType | null;
+  unloadingActorId?: string | null;
+  sourceMetadata?: TripSourceMetadata;
 }
 
 export interface DestinationReceiptParams {
@@ -251,6 +278,11 @@ export interface DestinationReceiptParams {
   unloadTime?: string;
   notes?: string;
   updatedBy?: string;
+
+  // Operation Source Model (BLOCK 29)
+  unloadingDataSource?: OperationSourceType | null;
+  unloadingActorType?: OperationActorType | null;
+  unloadingActorId?: string | null;
 }
 
 export interface RuleValidationResult {
