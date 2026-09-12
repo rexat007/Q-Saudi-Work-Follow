@@ -52,8 +52,11 @@ import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { outboxService } from './services/offline/outbox.service';
 import { conflictResolutionService } from './services/offline/conflictResolution.service';
 import { Wifi, Inbox } from 'lucide-react';
+import { useI18n } from './i18n';
+import { LanguageSwitcher } from './components/i18n/LanguageSwitcher';
 
 export default function App() {
+  const { direction } = useI18n();
   const [activeTab, setActiveTab] = useState<'OPERATIONS_DASHBOARD' | 'LEGACY_MIGRATION' | 'ADMIN_CONSOLE' | 'SECURITY_AUDIT' | 'REPORTS_ENGINE' | 'TRIP_ENGINE' | 'WORKSPACE_INTEGRATION' | 'EXCEPTION_ENGINE' | 'IMPORT_CENTER' | 'DATA_QUALITY' | 'MASTER_DATA' | 'PRICING_ENGINE' | 'WIZARD' | 'FIRESTORE_ARCH' | 'RELATIONS' | 'PRINCIPLES' | 'DOCS'>('OPERATIONS_DASHBOARD');
   const [selectedEntityId, setSelectedEntityId] = useState<string>('Trip');
   const [selectedDocId, setSelectedDocId] = useState<string>('architecture');
@@ -119,7 +122,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-900 font-sans flex flex-col antialiased" dir="rtl">
+    <div className="min-h-screen bg-stone-50 text-stone-900 font-sans flex flex-col antialiased" dir={direction}>
       {/* Top Professional Header */}
       <header className="bg-white border-b border-stone-200 sticky top-0 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -468,6 +471,9 @@ export default function App() {
                 <span>{conflictCount} تعارض تشغيلي</span>
               </button>
             )}
+
+            {/* Language Switcher */}
+            <LanguageSwitcher />
 
             {/* PWA Install Button */}
             <PWAInstallButton />
