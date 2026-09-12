@@ -6,3 +6,4 @@ export * from './pluralization';
 export * from './I18nContext';
 export type * from './catalog/catalog.types';
 export type * from './catalog/translationCatalog.types';
+export type * from './codemod/codemod.types';

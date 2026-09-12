@@ -10,8 +10,10 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
+    "codemod:dry-run": "tsx scripts/run-codemod-dry-run.ts",
+    "test:i18n-codemod": "tsx src/tests/i18nCodemod.test.ts",
     "test:i18n-gen": "tsx src/tests/i18nTranslationGeneration.test.ts",
-    "test": "tsx src/tests/excelCsvImport.test.ts && tsx src/tests/i18nFoundation.test.ts && tsx src/tests/i18nCatalog.test.ts && tsx src/tests/i18nTranslationCatalog.test.ts && tsx src/tests/i18nTranslationGeneration.test.ts"
+    "test": "tsx src/tests/excelCsvImport.test.ts && tsx src/tests/i18nFoundation.test.ts && tsx src/tests/i18nCatalog.test.ts && tsx src/tests/i18nTranslationCatalog.test.ts && tsx src/tests/i18nTranslationGeneration.test.ts && tsx src/tests/i18nCodemod.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
