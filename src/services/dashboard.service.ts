@@ -180,6 +180,10 @@ class DashboardService {
     let inTransitTrips = 0;
     let returnedTrips = 0;
     let exceptionTrips = 0;
+    let pendingReviewTrips = 0;
+    let pendingPricingTrips = 0;
+    let weighbridgeTrips = 0;
+    let manualTrips = 0;
 
     trips.forEach(t => {
       switch (t.status) {
@@ -197,6 +201,32 @@ class DashboardService {
           exceptionTrips++;
           break;
       }
+
+      // Review status
+      if (t.hasExceptions || t.status === 'EXCEPTION' || (t as any).requiresReview) {
+        pendingReviewTrips++;
+      }
+
+      // Pricing status (pending settlement or unresolved pricing)
+      const isPendingPricing = Boolean(
+        t.pricingSnapshot?.isPending === true ||
+        t.pricingSnapshot?.pricingRuleId === 'UNRESOLVED_PENDING' ||
+        t.pricingRuleId === 'UNRESOLVED_PENDING' ||
+        (t as any).pricingStatus === 'PENDING' ||
+        (t as any).pricingStatus === 'UNRESOLVED_PENDING' ||
+        (!t.pricingSnapshot && (t.settlementAmount === 0 || !t.pricingRuleId) && (t.agreedRate === 0 || !t.agreedRate))
+      );
+      if (isPendingPricing) {
+        pendingPricingTrips++;
+      }
+
+      // Source type (Weighbridge vs Manual vs other)
+      const source = t.sourceType || t.loadingDataSource || 'WEIGHBRIDGE';
+      if (source === 'WEIGHBRIDGE') {
+        weighbridgeTrips++;
+      } else if (source === 'MANUAL') {
+        manualTrips++;
+      }
     });
 
     const completedRatePercent = totalTrips > 0 ? Number(((completedTrips / totalTrips) * 100).toFixed(1)) : 0;
@@ -210,6 +240,10 @@ class DashboardService {
       exceptionTrips,
       completedRatePercent,
       returnedRatePercent,
+      pendingReviewTrips,
+      pendingPricingTrips,
+      weighbridgeTrips,
+      manualTrips,
     };
   }
 

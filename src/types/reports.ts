@@ -1,4 +1,4 @@
-import { TripEngineStatus, TripPricingType, TripRecord } from './tripEngine';
+import { TripEngineStatus, TripPricingType, TripRecord, OperationSourceType } from './tripEngine';
 
 export type ReportCategory = 'OPERATIONAL' | 'PRICING';
 
@@ -10,7 +10,8 @@ export type OperationalReportType =
   | 'TRUCK_UTILIZATION'
   | 'WEIGHT_VARIANCE'
   | 'RETURNED_TRIPS'
-  | 'EXCEPTION_REPORT';
+  | 'EXCEPTION_REPORT'
+  | 'SOURCE_BREAKDOWN';
 
 export type PricingReportType =
   | 'SETTLEMENT_BY_CARRIER'
@@ -25,12 +26,16 @@ export type ReportType = OperationalReportType | PricingReportType;
 
 export interface ReportFilterParams {
   projectId: string; // 'ALL' or specific ID
-  shiftDateFrom?: string; // YYYY-MM-DD
-  shiftDateTo?: string; // YYYY-MM-DD
+  dateFrom?: string; // YYYY-MM-DD
+  dateTo?: string; // YYYY-MM-DD
+  shiftDateFrom?: string; // backward compat alias for dateFrom
+  shiftDateTo?: string; // backward compat alias for dateTo
+  shift?: 'ALL' | 'MORNING' | 'EVENING' | 'NIGHT' | string;
   carrierId?: string; // 'ALL' or ID
   materialId?: string; // 'ALL' or ID
-  pricingType?: 'ALL' | TripPricingType;
-  status?: 'ALL' | TripEngineStatus;
+  pricingType?: 'ALL' | TripPricingType | string;
+  status?: 'ALL' | TripEngineStatus | string;
+  sourceType?: 'ALL' | OperationSourceType | 'MANUAL' | 'WEIGHBRIDGE' | 'EXCEL' | 'CSV' | 'GOOGLE_SHEETS' | 'GOOGLE_DRIVE' | 'API' | 'MIGRATION' | string;
   truckId?: string; // 'ALL' or ID
   driverId?: string; // 'ALL' or ID
   supervisorId?: string; // 'ALL' or ID (matched against loaderId, unloaderId, createdBy)
@@ -48,11 +53,13 @@ export interface ReportFinancialSummary {
   exceptionsCount: number;
   returnedTripsCount: number;
 
-  // BLOCK 36 Gap 1 Fix: Explicit pending pricing separation
+  // BLOCK 36 & BLOCK 39: Explicit pending pricing separation
   pricedTrips: number;
   pendingSettlementTrips: number;
   finalSettlementAmount: number; // Excludes pending settlement trips
   pendingSettlementAmount?: number;
+  totalDemurrageAmountSAR?: number;
+  pendingDemurrageCount?: number;
 }
 
 export interface ReportColumnDef {
@@ -159,6 +166,15 @@ export const OPERATIONAL_REPORTS_METADATA: Record<OperationalReportType, ReportM
     descriptionAr: 'تحليل حالات عدم المطابقة الـ 12 وحالات التدقيق والتسوية التشغيلية',
     iconName: 'AlertTriangle',
     primaryMetricLabel: 'عدد حالات الاستثناء المفتوحة',
+  },
+  SOURCE_BREAKDOWN: {
+    type: 'SOURCE_BREAKDOWN',
+    category: 'OPERATIONAL',
+    titleAr: 'تحليل مصادر العمليات',
+    titleEn: 'Operation Source Breakdown',
+    descriptionAr: 'تحليل وتوزيع الرحلات والأوزان والمبالغ المالية حسب مصدر الإدخال والتشغيل',
+    iconName: 'Layers',
+    primaryMetricLabel: 'الرحلات حسب المصدر',
   },
 };
 

@@ -31,6 +31,10 @@ export interface TripStatusMetrics {
   exceptionTrips: number;
   completedRatePercent: number;
   returnedRatePercent: number;
+  pendingReviewTrips?: number;
+  pendingPricingTrips?: number;
+  weighbridgeTrips?: number;
+  manualTrips?: number;
 }
 
 export interface TonnageMetrics {

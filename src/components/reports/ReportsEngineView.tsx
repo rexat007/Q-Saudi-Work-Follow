@@ -36,11 +36,10 @@ import {
   OPERATIONAL_REPORTS_METADATA, 
   PRICING_REPORTS_METADATA 
 } from '../../types/reports';
-import { TripEngineStatus, TripPricingType } from '../../types/tripEngine';
+import { TripEngineStatus, TripPricingType, OperationSourceType } from '../../types/tripEngine';
 import { reportsEngineService } from '../../services/reportsEngine.service';
 import { tripEngineService } from '../../services/tripEngine.service';
 import { PrintableReportModal } from './PrintableReportModal';
-import { DEFAULT_PROJECTS, DEFAULT_CARRIERS, DEFAULT_MATERIALS, DEFAULT_TRUCKS, DEFAULT_DRIVERS } from '../../data/defaultMasterData';
 import { runReportsEngineTests, ReportsTestCaseResult } from '../../tests/reportsEngine.test';
 import { Play, Check, X, ShieldAlert } from 'lucide-react';
 
@@ -59,15 +58,17 @@ export const ReportsEngineView: React.FC = () => {
     results: ReportsTestCaseResult[];
   }>(() => runReportsEngineTests());
   
-  // Filter state
+  // Filter state (BLOCK 39: multi-criteria filter parameters)
   const [filters, setFilters] = useState<ReportFilterParams>({
     projectId: 'ALL',
     shiftDateFrom: '',
     shiftDateTo: '',
+    shift: 'ALL',
     carrierId: 'ALL',
     materialId: 'ALL',
     pricingType: 'ALL',
     status: 'ALL',
+    sourceType: 'ALL',
     truckId: 'ALL',
     driverId: 'ALL',
     supervisorId: 'ALL',
@@ -79,6 +80,52 @@ export const ReportsEngineView: React.FC = () => {
 
   // Trips from tripEngineService
   const allTrips = useMemo(() => tripEngineService.getTrips(), []);
+
+  // Distinct master data options extracted dynamically from live trips & snapshots (RP-27, RP-28, RP-34)
+  const availableProjects = useMemo(() => {
+    const map = new Map<string, string>();
+    allTrips.forEach(t => {
+      const pName = reportsEngineService.getEntityLabels(t).projectName;
+      map.set(t.projectId, pName);
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ projectId: id, nameAr: name }));
+  }, [allTrips]);
+
+  const availableCarriers = useMemo(() => {
+    const map = new Map<string, string>();
+    allTrips.forEach(t => {
+      const cName = reportsEngineService.getEntityLabels(t).carrierName;
+      map.set(t.carrierId, cName);
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ carrierId: id, nameAr: name }));
+  }, [allTrips]);
+
+  const availableMaterials = useMemo(() => {
+    const map = new Map<string, string>();
+    allTrips.forEach(t => {
+      const mName = reportsEngineService.getEntityLabels(t).materialName;
+      map.set(t.materialId, mName);
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ materialId: id, nameAr: name }));
+  }, [allTrips]);
+
+  const availableTrucks = useMemo(() => {
+    const map = new Map<string, string>();
+    allTrips.forEach(t => {
+      const tPlate = reportsEngineService.getEntityLabels(t).truckPlate;
+      map.set(t.truckId, tPlate);
+    });
+    return Array.from(map.entries()).map(([id, plate]) => ({ truckId: id, plateNumberAr: plate }));
+  }, [allTrips]);
+
+  const availableDrivers = useMemo(() => {
+    const map = new Map<string, string>();
+    allTrips.forEach(t => {
+      const dName = reportsEngineService.getEntityLabels(t).driverName;
+      map.set(t.driverId, dName);
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ driverId: id, fullNameAr: name }));
+  }, [allTrips]);
 
   // Distinct supervisors list extracted from trips
   const availableSupervisors = useMemo(() => {
@@ -114,10 +161,12 @@ export const ReportsEngineView: React.FC = () => {
     if (filters.projectId !== 'ALL') count++;
     if (filters.shiftDateFrom) count++;
     if (filters.shiftDateTo) count++;
+    if (filters.shift && filters.shift !== 'ALL') count++;
     if (filters.carrierId !== 'ALL') count++;
     if (filters.materialId !== 'ALL') count++;
     if (filters.pricingType !== 'ALL') count++;
     if (filters.status !== 'ALL') count++;
+    if (filters.sourceType && filters.sourceType !== 'ALL') count++;
     if (filters.truckId !== 'ALL') count++;
     if (filters.driverId !== 'ALL') count++;
     if (filters.supervisorId !== 'ALL') count++;
@@ -129,10 +178,12 @@ export const ReportsEngineView: React.FC = () => {
       projectId: 'ALL',
       shiftDateFrom: '',
       shiftDateTo: '',
+      shift: 'ALL',
       carrierId: 'ALL',
       materialId: 'ALL',
       pricingType: 'ALL',
       status: 'ALL',
+      sourceType: 'ALL',
       truckId: 'ALL',
       driverId: 'ALL',
       supervisorId: 'ALL',
@@ -237,7 +288,7 @@ export const ReportsEngineView: React.FC = () => {
             }`}
           >
             <Truck className="w-4 h-4" />
-            <span>تقارير التشغيل (8 تقارير)</span>
+            <span>تقارير التشغيل (9 تقارير)</span>
             <span className={`px-1.5 py-0.2 rounded text-[10px] ${activeCategory === 'OPERATIONAL' ? 'bg-white/20 text-white' : 'bg-stone-200 text-stone-700'}`}>
               Operational
             </span>
@@ -264,7 +315,7 @@ export const ReportsEngineView: React.FC = () => {
         </div>
 
         {/* Report Selector Pills */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 mt-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2 mt-3">
           {activeCategory === 'OPERATIONAL' &&
             Object.values(OPERATIONAL_REPORTS_METADATA).map((rep) => {
               const isSelected = selectedReportType === rep.type;
@@ -309,7 +360,7 @@ export const ReportsEngineView: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Comprehensive Filter Engine Bar (9 Parameters) */}
+      {/* 2. Comprehensive Filter Engine Bar (Multi-Parameter Filter Engine) */}
       <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -332,8 +383,8 @@ export const ReportsEngineView: React.FC = () => {
           )}
         </div>
 
-        {/* 9 Filter Selectors Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+        {/* Filter Selectors Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
           
           {/* 1. Project */}
           <div>
@@ -344,7 +395,7 @@ export const ReportsEngineView: React.FC = () => {
               className="w-full text-xs bg-stone-50 border border-stone-200 rounded-lg p-2 focus:ring-1 focus:ring-amber-500 text-stone-800"
             >
               <option value="ALL">كافة المشاريع (All Projects)</option>
-              {DEFAULT_PROJECTS.map(p => (
+              {availableProjects.map(p => (
                 <option key={p.projectId} value={p.projectId}>{p.nameAr}</option>
               ))}
             </select>
@@ -371,6 +422,21 @@ export const ReportsEngineView: React.FC = () => {
             />
           </div>
 
+          {/* Shift Filter */}
+          <div>
+            <label className="block text-[11px] font-bold text-stone-600 mb-1">الوردية (Shift)</label>
+            <select
+              value={filters.shift || 'ALL'}
+              onChange={(e) => setFilters(prev => ({ ...prev, shift: e.target.value as any }))}
+              className="w-full text-xs bg-stone-50 border border-stone-200 rounded-lg p-2 focus:ring-1 focus:ring-amber-500 text-stone-800"
+            >
+              <option value="ALL">كافة الورديات (All Shifts)</option>
+              <option value="MORNING">الصباحية (06:00 - 14:00)</option>
+              <option value="EVENING">المسائية (14:00 - 22:00)</option>
+              <option value="NIGHT">الليلية (22:00 - 06:00)</option>
+            </select>
+          </div>
+
           {/* 3. Carrier */}
           <div>
             <label className="block text-[11px] font-bold text-stone-600 mb-1">الناقل (Carrier)</label>
@@ -380,8 +446,8 @@ export const ReportsEngineView: React.FC = () => {
               className="w-full text-xs bg-stone-50 border border-stone-200 rounded-lg p-2 focus:ring-1 focus:ring-amber-500 text-stone-800"
             >
               <option value="ALL">كافة الناقلين (All Carriers)</option>
-              {DEFAULT_CARRIERS.map(c => (
-                <option key={c.carrierId} value={c.carrierId}>{c.companyNameAr || c.name}</option>
+              {availableCarriers.map(c => (
+                <option key={c.carrierId} value={c.carrierId}>{c.nameAr}</option>
               ))}
             </select>
           </div>
@@ -395,8 +461,8 @@ export const ReportsEngineView: React.FC = () => {
               className="w-full text-xs bg-stone-50 border border-stone-200 rounded-lg p-2 focus:ring-1 focus:ring-amber-500 text-stone-800"
             >
               <option value="ALL">كافة المواد (All Materials)</option>
-              {DEFAULT_MATERIALS.map(m => (
-                <option key={m.materialId} value={m.materialId}>{m.nameAr || m.name}</option>
+              {availableMaterials.map(m => (
+                <option key={m.materialId} value={m.materialId}>{m.nameAr}</option>
               ))}
             </select>
           </div>
@@ -435,6 +501,26 @@ export const ReportsEngineView: React.FC = () => {
             </select>
           </div>
 
+          {/* Source Type Filter */}
+          <div>
+            <label className="block text-[11px] font-bold text-stone-600 mb-1">مصدر العملية (Source Type)</label>
+            <select
+              value={filters.sourceType || 'ALL'}
+              onChange={(e) => setFilters(prev => ({ ...prev, sourceType: e.target.value as any }))}
+              className="w-full text-xs bg-stone-50 border border-stone-200 rounded-lg p-2 focus:ring-1 focus:ring-amber-500 text-stone-800 font-medium"
+            >
+              <option value="ALL">كافة المصادر (All Sources)</option>
+              <option value="WEIGHBRIDGE">ميزان إلكتروني (WEIGHBRIDGE)</option>
+              <option value="MANUAL">إدخال يدوي (MANUAL)</option>
+              <option value="EXCEL">استيراد إكسل (EXCEL)</option>
+              <option value="CSV">ملف نصي (CSV)</option>
+              <option value="GOOGLE_SHEETS">جداول جوجل (GOOGLE_SHEETS)</option>
+              <option value="GOOGLE_DRIVE">سحابة درايف (GOOGLE_DRIVE)</option>
+              <option value="API">ربط برمجي (API)</option>
+              <option value="MIGRATION">ترحيل تاريخي (MIGRATION)</option>
+            </select>
+          </div>
+
           {/* 7. Truck */}
           <div>
             <label className="block text-[11px] font-bold text-stone-600 mb-1">الشاحنة (Truck)</label>
@@ -444,8 +530,8 @@ export const ReportsEngineView: React.FC = () => {
               className="w-full text-xs bg-stone-50 border border-stone-200 rounded-lg p-2 focus:ring-1 focus:ring-amber-500 text-stone-800"
             >
               <option value="ALL">كافة الشاحنات (All Trucks)</option>
-              {DEFAULT_TRUCKS.map(t => (
-                <option key={t.truckId} value={t.truckId}>{t.plateNumberAr || t.plate} ({t.truckType})</option>
+              {availableTrucks.map(t => (
+                <option key={t.truckId} value={t.truckId}>{t.plateNumberAr}</option>
               ))}
             </select>
           </div>
@@ -459,8 +545,8 @@ export const ReportsEngineView: React.FC = () => {
               className="w-full text-xs bg-stone-50 border border-stone-200 rounded-lg p-2 focus:ring-1 focus:ring-amber-500 text-stone-800"
             >
               <option value="ALL">كافة السائقين (All Drivers)</option>
-              {DEFAULT_DRIVERS.map(d => (
-                <option key={d.driverId} value={d.driverId}>{d.name} ({d.nationalOrIqamaId})</option>
+              {availableDrivers.map(d => (
+                <option key={d.driverId} value={d.driverId}>{d.fullNameAr}</option>
               ))}
             </select>
           </div>

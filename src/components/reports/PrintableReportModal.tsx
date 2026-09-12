@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, Printer, ShieldCheck, Building2, Calendar, FileText } from 'lucide-react';
 import { ReportDataset } from '../../types/reports';
-import { DEFAULT_PROJECTS } from '../../data/defaultMasterData';
+import { reportsEngineService } from '../../services/reportsEngine.service';
 
 interface PrintableReportModalProps {
   dataset: ReportDataset;
@@ -9,9 +9,11 @@ interface PrintableReportModalProps {
 }
 
 export const PrintableReportModal: React.FC<PrintableReportModalProps> = ({ dataset, onClose }) => {
-  const selectedProject = DEFAULT_PROJECTS.find(p => p.projectId === dataset.filtersApplied.projectId);
-  const projectName = selectedProject?.nameAr || (dataset.filtersApplied.projectId === 'ALL' ? 'كافة المشاريع الإنشائية' : dataset.filtersApplied.projectId);
-  const zatcaTaxNo = selectedProject?.settings?.zatcaTaxNumber || '300012345600003';
+  const projectId = dataset.filtersApplied.projectId;
+  const projectLookup = reportsEngineService.getMasterDataLookup(projectId) || reportsEngineService.getMasterDataLookup('ALL');
+  const projectInfo = projectLookup?.projects?.get(projectId);
+  const projectName = projectInfo?.nameAr || (projectId === 'ALL' ? 'كافة المشاريع الإنشائية' : projectId);
+  const zatcaTaxNo = (projectInfo as any)?.settings?.zatcaTaxNumber || '300012345600003';
   const referenceCode = `REP-${dataset.reportType.slice(0, 4)}-${Date.now().toString().slice(-6)}`;
 
   const handlePrint = () => {

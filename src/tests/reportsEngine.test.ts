@@ -252,7 +252,7 @@ export function runReportsEngineTests(): {
     details: `Gross: ${summary.grossAmountSAR}, Adjustments: ${summary.adjustmentsSAR}, Exceptions: ${summary.exceptionsSAR}, Net: ${summary.netAmountSAR}`,
   });
 
-  // Test 8: All 8 Operational Reports Generation
+  // Test 8: All 9 Operational Reports Generation
   const opReports = [
     'DAILY_OPERATIONS',
     'SHIFT_OPERATIONS',
@@ -262,6 +262,7 @@ export function runReportsEngineTests(): {
     'WEIGHT_VARIANCE',
     'RETURNED_TRIPS',
     'EXCEPTION_REPORT',
+    'SOURCE_BREAKDOWN',
   ] as const;
 
   let allOpPassed = true;
@@ -276,11 +277,11 @@ export function runReportsEngineTests(): {
   results.push({
     id: 'REP-TST-08',
     category: 'Operational Reports',
-    titleAr: 'توليد تقارير التشغيل الـ 8 وتطابق الأعمدة والمؤشرات',
+    titleAr: 'توليد تقارير التشغيل الـ 9 وتطابق الأعمدة والمؤشرات',
     passed: allOpPassed,
     expected: true,
     actual: allOpPassed,
-    details: 'تم توليد كافة تقارير التشغيل بنجاح مع سلامة البيانات والأعمدة.',
+    details: 'تم توليد كافة تقارير التشغيل الـ 9 (بما فيها SOURCE_BREAKDOWN) بنجاح.',
   });
 
   // Test 9: All 7 Pricing Reports Generation
@@ -313,6 +314,53 @@ export function runReportsEngineTests(): {
     details: 'تم توليد كافة تقارير التسعير والتسويات بنجاح مع سلامة الحسابات.',
   });
 
+  // Test 10: Pending Settlement Isolation (BLOCK 39: 0 SAR finalized vs 0 SAR pending)
+  const pendingTrip: TripRecord = {
+    ...mockTrips[0],
+    tripId: 'TRP-TEST-PENDING',
+    pricingSnapshot: undefined,
+    pricingRuleId: '',
+    agreedRate: 0,
+    settlementAmount: 0,
+    pricingType: 'PER_TON',
+  };
+  const pendingBreakdown = reportsEngineService.computeTripFinancialBreakdown(pendingTrip);
+  const pendingSummary = reportsEngineService.calculateSummary([mockTrips[0], pendingTrip]);
+  const isIsolated = pendingBreakdown.isPending === true && 
+                     pendingSummary.pendingSettlementTrips === 1 && 
+                     pendingSummary.pricedTrips === 1 &&
+                     pendingSummary.netAmountSAR === 1500.0;
+
+  results.push({
+    id: 'REP-TST-10',
+    category: 'Financial Isolation',
+    titleAr: 'عزل الرحلات معلقة التسعير (Pending Settlement Isolation)',
+    passed: isIsolated,
+    expected: true,
+    actual: isIsolated,
+    details: 'تم عزل الرحلة المعلقة ولم تحتسب كصفر معتمد نهائي، مع تتبع pendingSettlementTrips بدقة.',
+  });
+
+  // Test 11: SOURCE_BREAKDOWN Report Generation & Metrics
+  const sourceBreakdownDataset = reportsEngineService.generateReport('SOURCE_BREAKDOWN', { projectId: 'ALL' });
+  const hasValidRows = sourceBreakdownDataset.rows.length > 0 &&
+                       sourceBreakdownDataset.rows.some(r => r.sourceType !== undefined && r.tripsCount !== undefined);
+  const hasExpectedColumns = sourceBreakdownDataset.columns.some(c => c.key === 'sourceTypeLabelAr') &&
+                             sourceBreakdownDataset.columns.some(c => c.key === 'tripsCount') &&
+                             sourceBreakdownDataset.columns.some(c => c.key === 'totalNetTons') &&
+                             sourceBreakdownDataset.columns.some(c => c.key === 'netAmount') &&
+                             sourceBreakdownDataset.columns.some(c => c.key === 'pendingSettlementTrips');
+
+  results.push({
+    id: 'REP-TST-11',
+    category: 'Operational Reports',
+    titleAr: 'تقرير تقسيم مصادر العمليات (SOURCE_BREAKDOWN)',
+    passed: hasValidRows && hasExpectedColumns,
+    expected: true,
+    actual: hasValidRows && hasExpectedColumns,
+    details: 'تم إنشاء تقرير توزيع مصادر العمليات وتطابق أعمدة المصدر والأوزان والتسويات وحالات التعليق.',
+  });
+
   const passedTests = results.filter(r => r.passed).length;
   const failedTests = results.length - passedTests;
 
@@ -323,4 +371,25 @@ export function runReportsEngineTests(): {
     failedTests,
     results,
   };
+}
+
+// Auto-run when executed directly via CLI/tsx
+if (typeof process !== 'undefined' && process.argv && process.argv[1]?.includes('reportsEngine.test')) {
+  const res = runReportsEngineTests();
+  console.log('\n======================================================');
+  console.log(`BLOCK 39: Reports Engine Test Results: ${res.passedTests}/${res.totalTests} PASSED`);
+  console.log('======================================================');
+  res.results.forEach((r) => {
+    console.log(`${r.passed ? '✅' : '❌'} [${r.id}] ${r.titleAr} - ${r.details}`);
+    if (!r.passed) {
+      console.log('   Expected:', r.expected);
+      console.log('   Actual:  ', r.actual);
+    }
+  });
+  console.log('======================================================\n');
+  if (!res.allPassed) {
+    process.exit(1);
+  } else {
+    process.exit(0);
+  }
 }
