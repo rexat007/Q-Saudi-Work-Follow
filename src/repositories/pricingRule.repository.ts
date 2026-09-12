@@ -8,7 +8,7 @@ import {
   serverTimestamp, 
   onSnapshot 
 } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { db, auth } from '../firebase/config';
 import { handleFirestoreError, OperationType } from '../firebase/errors';
 import { PricingRuleEntity } from '../types/entities';
 
@@ -56,6 +56,10 @@ export class PricingRuleRepository {
   }
 
   async listByProject(projectId: string): Promise<PricingRuleEntity[]> {
+    const cached = this.getLocalCache(projectId);
+    if (!auth.currentUser) {
+      return cached;
+    }
     const path = this.getPath(projectId);
     try {
       const snap = await getDocs(collection(db, 'projects', projectId, 'pricing_rules'));
@@ -64,10 +68,8 @@ export class PricingRuleRepository {
         this.saveLocalCache(projectId, rules);
         return rules;
       }
-      const cached = this.getLocalCache(projectId);
       return cached.length > 0 ? cached : rules;
     } catch (error) {
-      const cached = this.getLocalCache(projectId);
       if (cached.length > 0) return cached;
       handleFirestoreError(error, OperationType.LIST, path);
     }
@@ -79,6 +81,10 @@ export class PricingRuleRepository {
     const current = this.getLocalCache(rule.projectId);
     const updated = [...current.filter(r => r.pricingRuleId !== rule.pricingRuleId), rule as PricingRuleEntity];
     this.saveLocalCache(rule.projectId, updated);
+
+    if (!auth.currentUser) {
+      return;
+    }
 
     try {
       const payload = {
@@ -99,6 +105,10 @@ export class PricingRuleRepository {
     const updated = current.map(r => r.pricingRuleId === pricingRuleId ? { ...r, ...updates, updatedBy } : r);
     this.saveLocalCache(projectId, updated);
 
+    if (!auth.currentUser) {
+      return;
+    }
+
     try {
       const payload = {
         ...updates,
@@ -114,6 +124,10 @@ export class PricingRuleRepository {
   }
 
   subscribeByProject(projectId: string, onData: (rules: PricingRuleEntity[]) => void) {
+    if (!auth.currentUser) {
+      onData(this.getLocalCache(projectId));
+      return () => {};
+    }
     const path = this.getPath(projectId);
     return onSnapshot(
       collection(db, 'projects', projectId, 'pricing_rules'),

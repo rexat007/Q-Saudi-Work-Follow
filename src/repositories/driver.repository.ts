@@ -8,7 +8,7 @@ import {
   serverTimestamp, 
   onSnapshot 
 } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { db, auth } from '../firebase/config';
 import { handleFirestoreError, OperationType } from '../firebase/errors';
 import { DriverEntity } from '../types/entities';
 
@@ -19,6 +19,9 @@ export class DriverRepository {
 
   async findById(projectId: string, driverId: string): Promise<DriverEntity | null> {
     const path = this.getPath(projectId, driverId);
+    if (!auth.currentUser) {
+      return null;
+    }
     try {
       const snap = await getDoc(doc(db, 'projects', projectId, 'drivers', driverId));
       if (!snap.exists()) return null;
@@ -30,6 +33,9 @@ export class DriverRepository {
 
   async listByProject(projectId: string): Promise<DriverEntity[]> {
     const path = this.getPath(projectId);
+    if (!auth.currentUser) {
+      return [];
+    }
     try {
       const snap = await getDocs(collection(db, 'projects', projectId, 'drivers'));
       return snap.docs.map(d => d.data() as DriverEntity);
@@ -40,6 +46,10 @@ export class DriverRepository {
 
   async create(driver: Omit<DriverEntity, 'createdAt' | 'updatedAt'> & { createdBy: string; updatedBy: string }): Promise<void> {
     const path = this.getPath(driver.projectId, driver.driverId);
+    if (!auth.currentUser) {
+      console.warn(`[DriverRepository] User unauthenticated. Skipping live Firestore create for ${path}`);
+      return;
+    }
     try {
       const payload = {
         ...driver,
@@ -54,6 +64,10 @@ export class DriverRepository {
 
   async update(projectId: string, driverId: string, updates: Partial<DriverEntity>, updatedBy: string): Promise<void> {
     const path = this.getPath(projectId, driverId);
+    if (!auth.currentUser) {
+      console.warn(`[DriverRepository] User unauthenticated. Skipping live Firestore update for ${path}`);
+      return;
+    }
     try {
       const payload = {
         ...updates,
@@ -69,6 +83,9 @@ export class DriverRepository {
   }
 
   subscribeByProject(projectId: string, onData: (drivers: DriverEntity[]) => void) {
+    if (!auth.currentUser) {
+      return () => {};
+    }
     const path = this.getPath(projectId);
     return onSnapshot(
       collection(db, 'projects', projectId, 'drivers'),

@@ -10,7 +10,7 @@ import {
   query,
   where
 } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { db, auth } from '../firebase/config';
 import { handleFirestoreError, OperationType } from '../firebase/errors';
 import { ProjectEntity } from '../types/entities';
 
@@ -19,6 +19,9 @@ export class ProjectRepository {
 
   async findById(projectId: string): Promise<ProjectEntity | null> {
     const path = `${this.collectionName}/${projectId}`;
+    if (!auth.currentUser) {
+      return null;
+    }
     try {
       const snap = await getDoc(doc(db, this.collectionName, projectId));
       if (!snap.exists()) return null;
@@ -29,6 +32,9 @@ export class ProjectRepository {
   }
 
   async listAll(assignedProjectIds?: string[], isSuperAdmin?: boolean): Promise<ProjectEntity[]> {
+    if (!auth.currentUser) {
+      return [];
+    }
     try {
       // If user is not super admin and assignedProjectIds is provided, restrict to assigned projects
       if (!isSuperAdmin && assignedProjectIds !== undefined) {
@@ -52,6 +58,10 @@ export class ProjectRepository {
 
   async create(project: Omit<ProjectEntity, 'createdAt' | 'updatedAt'> & { createdBy: string; updatedBy: string }): Promise<void> {
     const path = `${this.collectionName}/${project.projectId}`;
+    if (!auth.currentUser) {
+      console.warn(`[ProjectRepository] User unauthenticated. Skipping live Firestore create for ${path}`);
+      return;
+    }
     try {
       const payload = {
         ...project,
@@ -66,6 +76,10 @@ export class ProjectRepository {
 
   async update(projectId: string, updates: Partial<ProjectEntity>, updatedBy: string): Promise<void> {
     const path = `${this.collectionName}/${projectId}`;
+    if (!auth.currentUser) {
+      console.warn(`[ProjectRepository] User unauthenticated. Skipping live Firestore update for ${path}`);
+      return;
+    }
     try {
       const payload = {
         ...updates,
@@ -85,6 +99,10 @@ export class ProjectRepository {
     assignedProjectIds?: string[],
     isSuperAdmin?: boolean
   ) {
+    if (!auth.currentUser) {
+      return () => {};
+    }
+
     if (!isSuperAdmin && assignedProjectIds !== undefined && assignedProjectIds.length === 0) {
       onData([]);
       return () => {};

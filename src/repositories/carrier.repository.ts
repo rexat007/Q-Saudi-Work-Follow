@@ -8,7 +8,7 @@ import {
   serverTimestamp, 
   onSnapshot 
 } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { db, auth } from '../firebase/config';
 import { handleFirestoreError, OperationType } from '../firebase/errors';
 import { CarrierEntity } from '../types/entities';
 
@@ -19,6 +19,9 @@ export class CarrierRepository {
 
   async findById(projectId: string, carrierId: string): Promise<CarrierEntity | null> {
     const path = this.getPath(projectId, carrierId);
+    if (!auth.currentUser) {
+      return null;
+    }
     try {
       const snap = await getDoc(doc(db, 'projects', projectId, 'carriers', carrierId));
       if (!snap.exists()) return null;
@@ -30,6 +33,9 @@ export class CarrierRepository {
 
   async listByProject(projectId: string): Promise<CarrierEntity[]> {
     const path = this.getPath(projectId);
+    if (!auth.currentUser) {
+      return [];
+    }
     try {
       const snap = await getDocs(collection(db, 'projects', projectId, 'carriers'));
       return snap.docs.map(d => d.data() as CarrierEntity);
@@ -40,6 +46,10 @@ export class CarrierRepository {
 
   async create(carrier: Omit<CarrierEntity, 'createdAt' | 'updatedAt'> & { createdBy: string; updatedBy: string }): Promise<void> {
     const path = this.getPath(carrier.projectId, carrier.carrierId);
+    if (!auth.currentUser) {
+      console.warn(`[CarrierRepository] User unauthenticated. Skipping live Firestore create for ${path}`);
+      return;
+    }
     try {
       const payload = {
         ...carrier,
@@ -54,6 +64,10 @@ export class CarrierRepository {
 
   async update(projectId: string, carrierId: string, updates: Partial<CarrierEntity>, updatedBy: string): Promise<void> {
     const path = this.getPath(projectId, carrierId);
+    if (!auth.currentUser) {
+      console.warn(`[CarrierRepository] User unauthenticated. Skipping live Firestore update for ${path}`);
+      return;
+    }
     try {
       const payload = {
         ...updates,
@@ -69,6 +83,9 @@ export class CarrierRepository {
   }
 
   subscribeByProject(projectId: string, onData: (carriers: CarrierEntity[]) => void) {
+    if (!auth.currentUser) {
+      return () => {};
+    }
     const path = this.getPath(projectId);
     return onSnapshot(
       collection(db, 'projects', projectId, 'carriers'),

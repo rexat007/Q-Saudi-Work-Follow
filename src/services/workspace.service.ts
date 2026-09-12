@@ -138,19 +138,23 @@ export class ClientWorkspaceService {
 
     // Update Project in Project Registry (Firestore) with the provisioned IDs
     try {
-      await projectRepository.update(project.projectId, {
-        settings: {
-          ...project.settings,
-          googleDriveFolderId: structure.projectFolderId,
-          googleSpreadsheetId: structure.spreadsheetId,
-          googleDriveProvisioning: {
-            enabled: true,
-            rootFolderName: structure.projectFolderName,
-            spreadsheetTitle: structure.projectFolderName,
-            status: 'PROVISIONED',
+      if (auth.currentUser) {
+        await projectRepository.update(project.projectId, {
+          settings: {
+            ...project.settings,
+            googleDriveFolderId: structure.projectFolderId,
+            googleSpreadsheetId: structure.spreadsheetId,
+            googleDriveProvisioning: {
+              enabled: true,
+              rootFolderName: structure.projectFolderName,
+              spreadsheetTitle: structure.projectFolderName,
+              status: 'PROVISIONED',
+            },
           },
-        },
-      }, 'WORKSPACE_INTEGRATION_SERVICE');
+        }, 'WORKSPACE_INTEGRATION_SERVICE');
+      } else {
+        console.info('[ClientWorkspaceService] User unauthenticated; skipping remote Firestore project update in demo mode.');
+      }
     } catch (e) {
       console.warn('Notice updating project registry in Firestore:', e);
     }

@@ -36,14 +36,15 @@ service cloud.firestore {
     function isAuditStampedUpdate(data) {
       return data.updatedAt is timestamp &&
              data.updatedBy is string && data.updatedBy.size() > 0 &&
-             data.createdAt == existing().createdAt &&
-             data.createdBy == existing().createdBy;
+             (!('createdAt' in existing()) || !('createdAt' in data) || data.createdAt == existing().createdAt) &&
+             (!('createdBy' in existing()) || !('createdBy' in data) || data.createdBy == existing().createdBy);
     }
 
     function isSuperAdmin() {
       return isSignedIn() && (
         request.auth.token.isSuperAdmin == true ||
         request.auth.token.role == 'SUPER_ADMIN' ||
+        (request.auth.token.email_verified == true && request.auth.token.email == 'saudiali044@gmail.com') ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'SUPER_ADMIN')
       );

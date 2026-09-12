@@ -8,7 +8,7 @@ import {
   serverTimestamp, 
   onSnapshot 
 } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { db, auth } from '../firebase/config';
 import { handleFirestoreError, OperationType } from '../firebase/errors';
 import { TruckEntity } from '../types/entities';
 
@@ -19,6 +19,9 @@ export class TruckRepository {
 
   async findById(projectId: string, truckId: string): Promise<TruckEntity | null> {
     const path = this.getPath(projectId, truckId);
+    if (!auth.currentUser) {
+      return null;
+    }
     try {
       const snap = await getDoc(doc(db, 'projects', projectId, 'trucks', truckId));
       if (!snap.exists()) return null;
@@ -30,6 +33,9 @@ export class TruckRepository {
 
   async listByProject(projectId: string): Promise<TruckEntity[]> {
     const path = this.getPath(projectId);
+    if (!auth.currentUser) {
+      return [];
+    }
     try {
       const snap = await getDocs(collection(db, 'projects', projectId, 'trucks'));
       return snap.docs.map(d => d.data() as TruckEntity);
@@ -40,6 +46,10 @@ export class TruckRepository {
 
   async create(truck: Omit<TruckEntity, 'createdAt' | 'updatedAt'> & { createdBy: string; updatedBy: string }): Promise<void> {
     const path = this.getPath(truck.projectId, truck.truckId);
+    if (!auth.currentUser) {
+      console.warn(`[TruckRepository] User unauthenticated. Skipping live Firestore create for ${path}`);
+      return;
+    }
     try {
       const payload = {
         ...truck,
@@ -54,6 +64,10 @@ export class TruckRepository {
 
   async update(projectId: string, truckId: string, updates: Partial<TruckEntity>, updatedBy: string): Promise<void> {
     const path = this.getPath(projectId, truckId);
+    if (!auth.currentUser) {
+      console.warn(`[TruckRepository] User unauthenticated. Skipping live Firestore update for ${path}`);
+      return;
+    }
     try {
       const payload = {
         ...updates,
@@ -69,6 +83,9 @@ export class TruckRepository {
   }
 
   subscribeByProject(projectId: string, onData: (trucks: TruckEntity[]) => void) {
+    if (!auth.currentUser) {
+      return () => {};
+    }
     const path = this.getPath(projectId);
     return onSnapshot(
       collection(db, 'projects', projectId, 'trucks'),

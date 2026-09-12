@@ -12,7 +12,7 @@ import {
   orderBy,
   limit
 } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { db, auth } from '../firebase/config';
 import { handleFirestoreError, OperationType } from '../firebase/errors';
 import { TripEntity, TripStatus } from '../types/entities';
 
@@ -63,6 +63,10 @@ export class TripRepository {
 
   async create(trip: Omit<TripEntity, 'createdAt' | 'updatedAt'> & { createdBy: string; updatedBy: string }): Promise<void> {
     const path = this.getPath(trip.projectId, trip.tripId);
+    if (!auth.currentUser) {
+      console.warn(`[TripRepository] User unauthenticated. Skipping live Firestore create for ${path}`);
+      return;
+    }
     try {
       const payload = {
         ...trip,
@@ -77,6 +81,10 @@ export class TripRepository {
 
   async update(projectId: string, tripId: string, updates: Partial<TripEntity>, updatedBy: string): Promise<void> {
     const path = this.getPath(projectId, tripId);
+    if (!auth.currentUser) {
+      console.warn(`[TripRepository] User unauthenticated. Skipping live Firestore update for ${path}`);
+      return;
+    }
     try {
       const payload = {
         ...updates,
@@ -92,6 +100,9 @@ export class TripRepository {
   }
 
   subscribeByProject(projectId: string, onData: (trips: TripEntity[]) => void) {
+    if (!auth.currentUser) {
+      return () => {};
+    }
     const path = this.getPath(projectId);
     return onSnapshot(
       collection(db, 'projects', projectId, 'trips'),
