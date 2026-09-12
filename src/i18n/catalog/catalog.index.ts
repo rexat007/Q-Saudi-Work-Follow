@@ -22,6 +22,9 @@ export * from './catalog.classifier';
 export * from './catalog.deduper';
 export * from './catalog.keyGenerator';
 export * from './catalog.extractor';
+export * from './translationCatalog.types';
+export * from './translationCatalog.constants';
+export * from './translationCatalog.generator';
 
 /**
  * Recursively retrieves all .ts and .tsx files in a directory

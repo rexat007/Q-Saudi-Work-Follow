@@ -1,31 +1,31 @@
 # i18n Catalog Extraction & Translation-Key Architecture Report (BLOCK 41)
 
-**Generated At:** 2026-09-12T07:55:25.387Z
+**Generated At:** 2026-09-12T08:04:27.978Z
 **Scope:** Read-only AST catalog analysis for existing application codebase.
 
 ## 1. Executive Summary Metrics
 
 | Metric | Count | Description |
 | :--- | :--- | :--- |
-| **Total Files Scanned** | 205 | TypeScript and TSX files analyzed in `src/` |
-| **Total Extracted Candidates** | 22412 | Total strings and text nodes parsed |
-| **Real User-Facing Texts** | 6834 | Confirmed visible Arabic and UI texts |
-| **Likely User-Facing Texts** | 276 | English UI text in visible elements |
-| **Ambiguous Texts** | 6216 | Short or context-isolated tokens for manual review |
+| **Total Files Scanned** | 209 | TypeScript and TSX files analyzed in `src/` |
+| **Total Extracted Candidates** | 22673 | Total strings and text nodes parsed |
+| **Real User-Facing Texts** | 6879 | Confirmed visible Arabic and UI texts |
+| **Likely User-Facing Texts** | 307 | English UI text in visible elements |
+| **Ambiguous Texts** | 6325 | Short or context-isolated tokens for manual review |
 | **Technical Strings** | 6867 | CSS classes, paths, enums, regexes, operators |
-| **Non-User-Facing Strings** | 2219 | Internal IDs, collection names, database keys |
-| **Distinct Proposed Keys** | 6079 | Hierarchical keys generated (e.g. `shared.actions.save`) |
-| **Duplicate Groups** | 2273 | Sets of identical/normalized recurring texts |
-| **Semantic Conflict Groups** | 283 | Identical texts requiring distinct contextual keys |
-| **Keys Requiring Review** | 7678 | Entries flagged with special cases or ambiguity |
-| **High / Critical Risk Hotspots** | 1936 | Concatenations, templates, or business data overlaps |
+| **Non-User-Facing Strings** | 2295 | Internal IDs, collection names, database keys |
+| **Distinct Proposed Keys** | 6132 | Hierarchical keys generated (e.g. `shared.actions.save`) |
+| **Duplicate Groups** | 2316 | Sets of identical/normalized recurring texts |
+| **Semantic Conflict Groups** | 295 | Identical texts requiring distinct contextual keys |
+| **Keys Requiring Review** | 7805 | Entries flagged with special cases or ambiguity |
+| **High / Critical Risk Hotspots** | 1954 | Concatenations, templates, or business data overlaps |
 
 ## 2. Category Distribution
 
 | Semantic Category | User-Facing Strings | Description |
 | :--- | :--- | :--- |
 | `imports` | 1434 | Classified operational domain |
-| `other` | 1132 | Classified operational domain |
+| `other` | 1208 | Classified operational domain |
 | `trips` | 629 | Classified operational domain |
 | `security` | 452 | Classified operational domain |
 | `reports` | 449 | Classified operational domain |
@@ -80,14 +80,14 @@ Identical visible text appearing across different operational domains with disti
 
 | Text | Occurrences | Reason | Distinct Contexts & Keys |
 | :--- | :--- | :--- | :--- |
-| "كجم" | 38 | Identical string "كجم" occurs in multiple semantic contexts with distinct keys (trips.labels.txt_18471c, security.labels.txt_18471c, dashboard.labels.txt_18471c, entityResolution.labels.txt_18471c, imports.labels.txt_18471c, weighbridge.labels.txt_18471c, other.labels.txt_18471c, loading.labels.txt_18471c, unloading.labels.txt_18471c). | `trips` (trips.labels.txt_18471c)<br/>`security` (security.labels.txt_18471c)<br/>`dashboard` (dashboard.labels.txt_18471c)<br/>`entityResolution` (entityResolution.labels.txt_18471c)<br/>`imports` (imports.labels.txt_18471c)<br/>`weighbridge` (weighbridge.labels.txt_18471c)<br/>`other` (other.labels.txt_18471c)<br/>`loading` (loading.labels.txt_18471c)<br/>`unloading` (unloading.labels.txt_18471c)<br/>`other` (other.labels.txt_18471c)<br/>`other` (other.labels.txt_18471c)<br/>`other` (other.labels.txt_18471c) |
-| "إلغاء" | 34 | Identical string "إلغاء" occurs in multiple semantic contexts with distinct keys (trips.actions.cancel, security.actions.cancel, entityResolution.actions.cancel, exceptions.actions.cancel, imports.actions.cancel, other.actions.cancel, legacyMigration.actions.cancel, pricing.actions.cancel, materials.actions.cancel, carriers.actions.cancel, projects.actions.cancel). | `trips` (trips.actions.cancel)<br/>`security` (security.actions.cancel)<br/>`entityResolution` (entityResolution.actions.cancel)<br/>`exceptions` (exceptions.actions.cancel)<br/>`imports` (imports.actions.cancel)<br/>`other` (other.actions.cancel)<br/>`legacyMigration` (legacyMigration.actions.cancel)<br/>`pricing` (pricing.actions.cancel)<br/>`materials` (materials.actions.cancel)<br/>`carriers` (carriers.actions.cancel)<br/>`projects` (projects.actions.cancel)<br/>`other` (other.actions.cancel)<br/>`other` (other.actions.cancel)<br/>`other` (other.actions.cancel)<br/>`other` (other.actions.cancel)<br/>`other` (other.actions.cancel) |
+| "كجم" | 39 | Identical string "كجم" occurs in multiple semantic contexts with distinct keys (trips.labels.txt_18471c, security.labels.txt_18471c, dashboard.labels.txt_18471c, entityResolution.labels.txt_18471c, imports.labels.txt_18471c, weighbridge.labels.txt_18471c, other.labels.txt_18471c, loading.labels.txt_18471c, unloading.labels.txt_18471c). | `trips` (trips.labels.txt_18471c)<br/>`security` (security.labels.txt_18471c)<br/>`dashboard` (dashboard.labels.txt_18471c)<br/>`entityResolution` (entityResolution.labels.txt_18471c)<br/>`imports` (imports.labels.txt_18471c)<br/>`weighbridge` (weighbridge.labels.txt_18471c)<br/>`other` (other.labels.txt_18471c)<br/>`loading` (loading.labels.txt_18471c)<br/>`unloading` (unloading.labels.txt_18471c)<br/>`other` (other.labels.txt_18471c)<br/>`other` (other.labels.txt_18471c)<br/>`other` (other.labels.txt_18471c)<br/>`other` (other.labels.txt_18471c) |
+| "إلغاء" | 36 | Identical string "إلغاء" occurs in multiple semantic contexts with distinct keys (trips.actions.cancel, security.actions.cancel, entityResolution.actions.cancel, exceptions.actions.cancel, imports.actions.cancel, other.actions.cancel, legacyMigration.actions.cancel, pricing.actions.cancel, materials.actions.cancel, carriers.actions.cancel, projects.actions.cancel). | `trips` (trips.actions.cancel)<br/>`security` (security.actions.cancel)<br/>`entityResolution` (entityResolution.actions.cancel)<br/>`exceptions` (exceptions.actions.cancel)<br/>`imports` (imports.actions.cancel)<br/>`other` (other.actions.cancel)<br/>`legacyMigration` (legacyMigration.actions.cancel)<br/>`pricing` (pricing.actions.cancel)<br/>`materials` (materials.actions.cancel)<br/>`carriers` (carriers.actions.cancel)<br/>`projects` (projects.actions.cancel)<br/>`other` (other.actions.cancel)<br/>`other` (other.actions.cancel)<br/>`other` (other.actions.cancel)<br/>`other` (other.actions.cancel)<br/>`other` (other.actions.cancel)<br/>`other` (other.actions.cancel) |
 | "الشركة الشرقية للنقل" | 34 | Identical string "الشركة الشرقية للنقل" occurs in multiple semantic contexts with distinct keys (imports.labels.txt_95f5e9, entityResolution.labels.txt_95f5e9). | `imports` (imports.labels.txt_95f5e9)<br/>`imports` (imports.labels.txt_95f5e9)<br/>`imports` (imports.labels.txt_95f5e9)<br/>`imports` (imports.labels.txt_95f5e9)<br/>`imports` (imports.labels.txt_95f5e9)<br/>`imports` (imports.labels.txt_95f5e9)<br/>`imports` (imports.labels.txt_95f5e9)<br/>`entityResolution` (entityResolution.labels.txt_95f5e9)<br/>`entityResolution` (entityResolution.labels.txt_95f5e9)<br/>`entityResolution` (entityResolution.labels.txt_95f5e9)<br/>`entityResolution` (entityResolution.labels.txt_95f5e9)<br/>`entityResolution` (entityResolution.labels.txt_95f5e9)<br/>`entityResolution` (entityResolution.labels.txt_95f5e9)<br/>`entityResolution` (entityResolution.labels.txt_95f5e9)<br/>`entityResolution` (entityResolution.labels.txt_95f5e9)<br/>`imports` (imports.labels.txt_95f5e9) |
 | "1010-أ ب ج" | 32 | Identical string "1010-أ ب ج" occurs in multiple semantic contexts with distinct keys (imports.labels.txt_6dd358, entityResolution.labels.txt_6dd358). | `imports` (imports.labels.txt_6dd358)<br/>`imports` (imports.labels.txt_6dd358)<br/>`imports` (imports.labels.txt_6dd358)<br/>`imports` (imports.labels.txt_6dd358)<br/>`entityResolution` (entityResolution.labels.txt_6dd358)<br/>`entityResolution` (entityResolution.labels.txt_6dd358)<br/>`entityResolution` (entityResolution.labels.txt_6dd358)<br/>`entityResolution` (entityResolution.labels.txt_6dd358)<br/>`entityResolution` (entityResolution.labels.txt_6dd358)<br/>`imports` (imports.labels.txt_6dd358) |
+| "رقم التذكرة" | 32 | Identical string "رقم التذكرة" occurs in multiple semantic contexts with distinct keys (imports.fields.ticketNumber, weighbridge.fields.ticketNumber, loading.fields.ticketNumber, other.fields.ticketNumber, legacyMigration.fields.ticketNumber). | `imports` (imports.fields.ticketNumber)<br/>`weighbridge` (weighbridge.fields.ticketNumber)<br/>`loading` (loading.fields.ticketNumber)<br/>`other` (other.fields.ticketNumber)<br/>`imports` (imports.fields.ticketNumber)<br/>`imports` (imports.fields.ticketNumber)<br/>`imports` (imports.fields.ticketNumber)<br/>`other` (other.fields.ticketNumber)<br/>`other` (other.fields.ticketNumber)<br/>`legacyMigration` (legacyMigration.fields.ticketNumber)<br/>`weighbridge` (weighbridge.fields.ticketNumber)<br/>`weighbridge` (weighbridge.fields.ticketNumber)<br/>`weighbridge` (weighbridge.fields.ticketNumber) |
 | "الناقل" | 31 | Identical string "الناقل" occurs in multiple semantic contexts with distinct keys (security.labels.carrier_2, dashboard.labels.carrier_2, entityResolution.labels.carrier_4, imports.labels.carrier_7, weighbridge.labels.carrier, other.labels.carrier_2, legacyMigration.labels.carrier_3, pricing.labels.carrier, reports.labels.carrier, loading.fields.carrier, loading.labels.carrier_5, reports.fields.carrier_4). | `security` (security.labels.carrier_2)<br/>`dashboard` (dashboard.labels.carrier_2)<br/>`entityResolution` (entityResolution.labels.carrier_4)<br/>`imports` (imports.labels.carrier_7)<br/>`weighbridge` (weighbridge.labels.carrier)<br/>`other` (other.labels.carrier_2)<br/>`legacyMigration` (legacyMigration.labels.carrier_3)<br/>`pricing` (pricing.labels.carrier)<br/>`reports` (reports.labels.carrier)<br/>`loading` (loading.fields.carrier)<br/>`loading` (loading.labels.carrier_5)<br/>`other` (other.labels.carrier_2)<br/>`imports` (imports.labels.carrier_7)<br/>`reports` (reports.fields.carrier_4)<br/>`other` (other.labels.carrier_2)<br/>`weighbridge` (weighbridge.labels.carrier) |
-| "رقم التذكرة" | 31 | Identical string "رقم التذكرة" occurs in multiple semantic contexts with distinct keys (imports.fields.ticketNumber, weighbridge.fields.ticketNumber, loading.fields.ticketNumber, other.fields.ticketNumber, legacyMigration.fields.ticketNumber). | `imports` (imports.fields.ticketNumber)<br/>`weighbridge` (weighbridge.fields.ticketNumber)<br/>`loading` (loading.fields.ticketNumber)<br/>`other` (other.fields.ticketNumber)<br/>`imports` (imports.fields.ticketNumber)<br/>`imports` (imports.fields.ticketNumber)<br/>`imports` (imports.fields.ticketNumber)<br/>`other` (other.fields.ticketNumber)<br/>`legacyMigration` (legacyMigration.fields.ticketNumber)<br/>`weighbridge` (weighbridge.fields.ticketNumber)<br/>`weighbridge` (weighbridge.fields.ticketNumber)<br/>`weighbridge` (weighbridge.fields.ticketNumber) |
 | "مؤسسة الرمال السريعة" | 23 | Identical string "مؤسسة الرمال السريعة" occurs in multiple semantic contexts with distinct keys (imports.labels.txt_1e149b, entityResolution.labels.txt_1e149b). | `imports` (imports.labels.txt_1e149b)<br/>`imports` (imports.labels.txt_1e149b)<br/>`imports` (imports.labels.txt_1e149b)<br/>`imports` (imports.labels.txt_1e149b)<br/>`entityResolution` (entityResolution.labels.txt_1e149b)<br/>`entityResolution` (entityResolution.labels.txt_1e149b)<br/>`entityResolution` (entityResolution.labels.txt_1e149b)<br/>`entityResolution` (entityResolution.labels.txt_1e149b)<br/>`entityResolution` (entityResolution.labels.txt_1e149b)<br/>`entityResolution` (entityResolution.labels.txt_1e149b)<br/>`entityResolution` (entityResolution.labels.txt_1e149b) |
-| "الوزن الصافي" | 21 | Identical string "الوزن الصافي" occurs in multiple semantic contexts with distinct keys (unloading.fields.netWeight, other.fields.netWeight, imports.fields.netWeight, weighbridge.fields.netWeight). | `unloading` (unloading.fields.netWeight)<br/>`other` (other.fields.netWeight)<br/>`imports` (imports.fields.netWeight)<br/>`imports` (imports.fields.netWeight)<br/>`other` (other.fields.netWeight)<br/>`weighbridge` (weighbridge.fields.netWeight)<br/>`weighbridge` (weighbridge.fields.netWeight) |
+| "الوزن الصافي" | 22 | Identical string "الوزن الصافي" occurs in multiple semantic contexts with distinct keys (unloading.fields.netWeight, other.fields.netWeight, imports.fields.netWeight, weighbridge.fields.netWeight). | `unloading` (unloading.fields.netWeight)<br/>`other` (other.fields.netWeight)<br/>`imports` (imports.fields.netWeight)<br/>`imports` (imports.fields.netWeight)<br/>`other` (other.fields.netWeight)<br/>`other` (other.fields.netWeight)<br/>`weighbridge` (weighbridge.fields.netWeight)<br/>`weighbridge` (weighbridge.fields.netWeight) |
 | "أ ب ج 1234" | 19 | Identical string "أ ب ج 1234" occurs in multiple semantic contexts with distinct keys (other.labels.txt_5045a4, entityResolution.fields.txt_5045a4, trips.labels.txt_5045a4, legacyMigration.labels.txt_5045a4). | `other` (other.labels.txt_5045a4)<br/>`entityResolution` (entityResolution.fields.txt_5045a4)<br/>`other` (other.labels.txt_5045a4)<br/>`other` (other.labels.txt_5045a4)<br/>`other` (other.labels.txt_5045a4)<br/>`trips` (trips.labels.txt_5045a4)<br/>`legacyMigration` (legacyMigration.labels.txt_5045a4)<br/>`legacyMigration` (legacyMigration.labels.txt_5045a4)<br/>`legacyMigration` (legacyMigration.labels.txt_5045a4)<br/>`legacyMigration` (legacyMigration.labels.txt_5045a4) |
 | "المادة" | 18 | Identical string "المادة" occurs in multiple semantic contexts with distinct keys (dashboard.labels.material_2, entityResolution.labels.material_3, imports.labels.material_2, legacyMigration.labels.material_3, pricing.labels.material_2, reports.labels.material, loading.fields.material, loading.labels.material_4, unloading.labels.material, weighbridge.labels.material_2, other.labels.material_13, reports.fields.material_3). | `dashboard` (dashboard.labels.material_2)<br/>`entityResolution` (entityResolution.labels.material_3)<br/>`imports` (imports.labels.material_2)<br/>`legacyMigration` (legacyMigration.labels.material_3)<br/>`pricing` (pricing.labels.material_2)<br/>`reports` (reports.labels.material)<br/>`loading` (loading.fields.material)<br/>`loading` (loading.labels.material_4)<br/>`unloading` (unloading.labels.material)<br/>`weighbridge` (weighbridge.labels.material_2)<br/>`other` (other.labels.material_13)<br/>`imports` (imports.labels.material_2)<br/>`reports` (reports.fields.material_3) |
 
@@ -95,11 +95,11 @@ Identical visible text appearing across different operational domains with disti
 
 - **Concatenated Strings (`+`):** 9
 - **Template Literals (`${...}`):** 602
-- **Interpolation Placeholders (`{...}`):** 195
-- **Mixed Numbers & Units:** 749
-- **Currency String Usages:** 334
-- **Unit String Usages:** 612
-- **Protected Business Field Matches:** 265
+- **Interpolation Placeholders (`{...}`):** 202
+- **Mixed Numbers & Units:** 751
+- **Currency String Usages:** 342
+- **Unit String Usages:** 633
+- **Protected Business Field Matches:** 273
 
 ## 6. Safety & Non-Destructive Invariance Confirmation
 
