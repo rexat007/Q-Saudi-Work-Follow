@@ -4,3 +4,4 @@ export * from './utils';
 export * from './formatters';
 export * from './pluralization';
 export * from './I18nContext';
+export type * from './catalog/catalog.types';

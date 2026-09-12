@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx src/tests/excelCsvImport.test.ts && tsx src/tests/i18nFoundation.test.ts"
+    "test": "tsx src/tests/excelCsvImport.test.ts && tsx src/tests/i18nFoundation.test.ts && tsx src/tests/i18nCatalog.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
