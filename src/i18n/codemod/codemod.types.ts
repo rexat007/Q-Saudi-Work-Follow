@@ -5,7 +5,7 @@
 
 import { SemanticCategory, MigrationRisk } from '../catalog/catalog.types';
 
-export type CodemodMode = 'DRY_RUN' | 'APPLY';
+export type CodemodMode = 'DRY_RUN' | 'APPLY' | 'APPLIED';
 
 export type CodemodRisk = 'SAFE' | 'LOW_RISK' | 'HIGH_RISK' | 'REVIEW_ONLY' | 'SKIP';
 

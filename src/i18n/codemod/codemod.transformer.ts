@@ -151,13 +151,25 @@ export class CodemodTransformer {
     );
 
     for (const compName of targetComponents) {
-      if (!code.includes(`const { t } = useI18n();`)) {
-        // Find component declaration
-        const compPattern = new RegExp(`(function\\s+${compName}[^{]*\\{|const\\s+${compName}\\s*=[^{]*\\{)`);
-        const match = compPattern.exec(code);
-        if (match) {
-          const insertIdx = match.index + match[0].length;
-          code = code.substring(0, insertIdx) + '\n  const { t } = useI18n();' + code.substring(insertIdx);
+      const hasTDestructured = /const\s*\{[^}]*\bt\b[^}]*\}\s*=\s*useI18n\(\)/.test(code);
+      if (!hasTDestructured) {
+        // Check if useI18n() is already called in the file
+        const existingHookPattern = /const\s*\{([^}]+)\}\s*=\s*useI18n\(\);/;
+        const hookMatch = existingHookPattern.exec(code);
+        if (hookMatch) {
+          const vars = hookMatch[1].split(',').map((s) => s.trim());
+          if (!vars.includes('t')) {
+            const replacedHook = `const { ${hookMatch[1].trim()}, t } = useI18n();`;
+            code = code.replace(hookMatch[0], replacedHook);
+          }
+        } else {
+          // Find component declaration
+          const compPattern = new RegExp(`(function\\s+${compName}[^{]*\\{|const\\s+${compName}\\s*=[^{]*\\{)`);
+          const match = compPattern.exec(code);
+          if (match) {
+            const insertIdx = match.index + match[0].length;
+            code = code.substring(0, insertIdx) + '\n  const { t } = useI18n();' + code.substring(insertIdx);
+          }
         }
       }
     }

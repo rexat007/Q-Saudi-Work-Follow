@@ -56,7 +56,7 @@ import { useI18n } from './i18n';
 import { LanguageSwitcher } from './components/i18n/LanguageSwitcher';
 
 export default function App() {
-  const { direction } = useI18n();
+  const { direction, t } = useI18n();
   const [activeTab, setActiveTab] = useState<'OPERATIONS_DASHBOARD' | 'LEGACY_MIGRATION' | 'ADMIN_CONSOLE' | 'SECURITY_AUDIT' | 'REPORTS_ENGINE' | 'TRIP_ENGINE' | 'WORKSPACE_INTEGRATION' | 'EXCEPTION_ENGINE' | 'IMPORT_CENTER' | 'DATA_QUALITY' | 'MASTER_DATA' | 'PRICING_ENGINE' | 'WIZARD' | 'FIRESTORE_ARCH' | 'RELATIONS' | 'PRINCIPLES' | 'DOCS'>('OPERATIONS_DASHBOARD');
   const [selectedEntityId, setSelectedEntityId] = useState<string>('Trip');
   const [selectedDocId, setSelectedDocId] = useState<string>('architecture');
@@ -143,8 +143,7 @@ export default function App() {
                 </span>
               </div>
               <p className="text-xs text-stone-500 font-medium">
-                المعمارية الهندسية الصارمة لمنظومة النقل الثقيل والمشاريع متعددة الأطراف (Multi-Project)
-              </p>
+                {t("navigation.labels.projects")}</p>
             </div>
           </div>
 
@@ -161,12 +160,11 @@ export default function App() {
                 }`}
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-blue-300" />
-                <span>التدقيق الأمني والحوكمة (Security Audit)</span>
+                <span>{t("navigation.labels.txt_3fe43d")}</span>
                 <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
                   activeTab === 'SECURITY_AUDIT' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-900'
                 }`}>
-                  16 نطاقاً
-                </span>
+                  {t("navigation.labels.txt_9a0a23")}</span>
               </button>
 
               <button
@@ -179,12 +177,11 @@ export default function App() {
                 }`}
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>ترحيل الشيت القديم (Legacy Migration)</span>
+                <span>{t("navigation.labels.txt_230d9e")}</span>
                 <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
                   activeTab === 'LEGACY_MIGRATION' ? 'bg-white/20 text-white' : 'bg-emerald-200 text-emerald-950'
                 }`}>
-                  20 عموداً
-                </span>
+                  {t("navigation.labels.txt_601c17")}</span>
               </button>
 
               <button
@@ -197,12 +194,11 @@ export default function App() {
                 }`}
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>لوحة الإدارة (Admin Console)</span>
+                <span>{t("navigation.labels.txt_152452")}</span>
                 <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
                   activeTab === 'ADMIN_CONSOLE' ? 'bg-white/20 text-white' : 'bg-amber-200 text-amber-900'
                 }`}>
-                  11 قسماً
-                </span>
+                  {t("navigation.labels.txt_6c2131")}</span>
               </button>
 
               <button
@@ -215,12 +211,11 @@ export default function App() {
                 }`}
               >
                 <LayoutDashboard className="w-3.5 h-3.5 text-amber-400" />
-                <span>لوحة العمليات (Dashboard)</span>
+                <span>{t("navigation.labels.txt_61c13d")}</span>
                 <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
                   activeTab === 'OPERATIONS_DASHBOARD' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
                 }`}>
-                  مباشر ومحمي
-                </span>
+                  {t("navigation.labels.txt_b4b841")}</span>
               </button>
 
               <button
@@ -233,12 +228,11 @@ export default function App() {
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
-                <span>محرك التقارير (Reports Engine)</span>
+                <span>{t("navigation.labels.reports")}</span>
                 <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
                   activeTab === 'REPORTS_ENGINE' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
                 }`}>
-                  15 تقريراً و PDF
-                </span>
+                  {t("navigation.labels.txt_185076")}</span>
               </button>
 
               <button
@@ -251,12 +245,11 @@ export default function App() {
                 }`}
               >
                 <Truck className="w-3.5 h-3.5" />
-                <span>محرك الرحلات (Trip Engine)</span>
+                <span>{t("navigation.labels.trips")}</span>
                 <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
                   activeTab === 'TRIP_ENGINE' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
                 }`}>
-                  6 قواعد
-                </span>
+                  {t("navigation.labels.txt_45b282")}</span>
               </button>
 
               <button
@@ -291,8 +284,7 @@ export default function App() {
                 <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
                   activeTab === 'EXCEPTION_ENGINE' ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-800'
                 }`}>
-                  12 نوعاً و Audit
-                </span>
+                  {t("navigation.labels.txt_7265aa")}</span>
               </button>
 
               <button
@@ -305,12 +297,11 @@ export default function App() {
                 }`}
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>مركز الاستيراد (Import Center)</span>
+                <span>{t("navigation.labels.import")}</span>
                 <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
                   activeTab === 'IMPORT_CENTER' ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-800'
                 }`}>
-                  12 مرحلة
-                </span>
+                  {t("navigation.labels.txt_3711ef")}</span>
               </button>
 
               <button
@@ -323,12 +314,11 @@ export default function App() {
                 }`}
               >
                 <ShieldAlert className="w-3.5 h-3.5" />
-                <span>محرك جودة البيانات (Quality Engine)</span>
+                <span>{t("navigation.labels.txt_1a75fa")}</span>
                 <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
                   activeTab === 'DATA_QUALITY' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
                 }`}>
-                  8 مراحل
-                </span>
+                  {t("navigation.labels.txt_2439c4")}</span>
               </button>
 
               <button
@@ -341,12 +331,11 @@ export default function App() {
                 }`}
               >
                 <Boxes className="w-3.5 h-3.5" />
-                <span>البيانات الرئيسية (Master Data)</span>
+                <span>{t("navigation.labels.txt_70f585")}</span>
                 <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
                   activeTab === 'MASTER_DATA' ? 'bg-white/20 text-white' : 'bg-amber-200 text-amber-900'
                 }`}>
-                  4 وحدات
-                </span>
+                  {t("navigation.labels.txt_50c969")}</span>
               </button>
 
               <button
@@ -359,7 +348,7 @@ export default function App() {
                 }`}
               >
                 <Calculator className="w-3.5 h-3.5" />
-                <span>محرك التسعير (Pricing Engine)</span>
+                <span>{t("navigation.labels.pricing")}</span>
                 <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
                   activeTab === 'PRICING_ENGINE' ? 'bg-white/20 text-white' : 'bg-emerald-200 text-emerald-900'
                 }`}>
@@ -377,12 +366,11 @@ export default function App() {
                 }`}
               >
                 <Building2 className="w-3.5 h-3.5" />
-                <span>معالج تهيئة المشاريع (Project Wizard)</span>
+                <span>{t("navigation.labels.projects_2")}</span>
                 <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
                   activeTab === 'WIZARD' ? 'bg-white/20 text-white' : 'bg-amber-200 text-amber-900'
                 }`}>
-                  7 خطوات
-                </span>
+                  {t("navigation.labels.txt_11ed5e")}</span>
               </button>
 
               <button
@@ -395,7 +383,7 @@ export default function App() {
                 }`}
               >
                 <Database className="w-3.5 h-3.5 text-amber-600" />
-                <span>معمارية Firestore (الـ 13 نطاقاً)</span>
+                <span>{t("navigation.labels.txt_1b8b59")}</span>
               </button>
 
               <button
@@ -408,7 +396,7 @@ export default function App() {
                 }`}
               >
                 <Share2 className="w-3.5 h-3.5 text-indigo-600" />
-                <span>شبكة العلاقات (11 كياناً)</span>
+                <span>{t("navigation.labels.txt_198d0f")}</span>
               </button>
 
               <button
@@ -421,7 +409,7 @@ export default function App() {
                 }`}
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>المبادئ الـ 12 الإلزامية</span>
+                <span>{t("navigation.labels.txt_4452c7")}</span>
               </button>
 
               <button
@@ -434,7 +422,7 @@ export default function App() {
                 }`}
               >
                 <BookOpen className="w-3.5 h-3.5 text-amber-600" />
-                <span>المستندات المعمارية (7 ملفات)</span>
+                <span>{t("navigation.labels.txt_13cd84")}</span>
               </button>
             </nav>
 
@@ -447,7 +435,7 @@ export default function App() {
                   ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-900' 
                   : 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-950 animate-pulse'
               }`}
-              title="فتح صندوق العمليات المعلقة (Outbox) وإعدادات عدم الاتصال ومحاكاة الشبكة"
+              title={t("navigation.status.txt_4c0b8d")}
             >
               {isOnline ? <Wifi className="w-3.5 h-3.5 text-emerald-600" /> : <WifiOff className="w-3.5 h-3.5 text-amber-700" />}
               <span>{isOnline ? 'Online' : 'Offline'}</span>
@@ -465,7 +453,7 @@ export default function App() {
                 id="header-conflicts-btn"
                 onClick={() => setIsOutboxOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-100 hover:bg-purple-200 border border-purple-400 text-purple-950 shadow-2xs animate-pulse transition-all"
-                title="تنبيه: يوجد تعارضات تشغيلية تتطلب حلاً صريحاً (Anti-LWW)"
+                title={t("navigation.labels.txt_10324c")}
               >
                 <ShieldAlert className="w-3.5 h-3.5 text-purple-700" />
                 <span>{conflictCount} تعارض تشغيلي</span>
@@ -564,14 +552,13 @@ export default function App() {
                 <div>
                   <h2 className="text-base font-bold text-stone-900 flex items-center gap-2">
                     <Boxes className="w-5 h-5 text-indigo-600" />
-                    <span>مخطط العلاقات التفاعلي بين كيانات النطاق التشغيلي</span>
+                    <span>{t("navigation.labels.txt_4df8c5")}</span>
                   </h2>
                   <p className="text-xs text-stone-500 mt-1">
-                    اختر أي كيان لاستعراض ارتباطاته الدقيقة، درجة التعددية (Cardinality)، وواجبات التحقق الخادومية الصارمة.
-                  </p>
+                    {t("navigation.labels.txt_23bdd6")}</p>
                 </div>
                 <div className="text-xs font-medium text-stone-400 bg-stone-50 px-3 py-1.5 rounded-lg border border-stone-200/60">
-                  النظام التشغيلي: <strong className="text-stone-700">Multi-Project Logistics FSM</strong>
+                  {t("navigation.labels.txt_46b695")}<strong className="text-stone-700">Multi-Project Logistics FSM</strong>
                 </div>
               </div>
 
@@ -634,7 +621,7 @@ export default function App() {
                     <div>
                       <h4 className="text-xs font-bold text-stone-900 mb-1.5 flex items-center gap-1.5">
                         <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>الدور والمسؤولية في النظام:</span>
+                        <span>{t("navigation.labels.txt_777008")}</span>
                       </h4>
                       <p className="text-xs text-stone-600 leading-normal">
                         {selectedEntity.roleInSystemAr}
@@ -644,7 +631,7 @@ export default function App() {
                     <div>
                       <h4 className="text-xs font-bold text-stone-900 mb-1.5 flex items-center gap-1.5">
                         <Database className="w-3.5 h-3.5 text-blue-600" />
-                        <span>الخصائص والحقول الأساسية (Key Attributes):</span>
+                        <span>{t("navigation.labels.txt_41e146")}</span>
                       </h4>
                       <div className="flex flex-wrap gap-1.5">
                         {selectedEntity.keyAttributes.map((attr, idx) => (
@@ -660,7 +647,7 @@ export default function App() {
                 <div className="mt-6 pt-4 border-t border-stone-100">
                   <h4 className="text-xs font-bold text-stone-900 mb-2 flex items-center gap-1.5">
                     <Lock className="w-3.5 h-3.5 text-amber-600" />
-                    <span>الضوابط والمبادئ المرتبطة:</span>
+                    <span>{t("navigation.labels.txt_4ada99")}</span>
                   </h4>
                   <ul className="space-y-1.5">
                     {selectedEntity.rulesEnforcedAr.map((rule, idx) => (
@@ -681,8 +668,7 @@ export default function App() {
                     <span>الارتباطات المباشرة مع الكيانات الأخرى في النظام ({selectedEntity.relationships.length})</span>
                   </h3>
                   <span className="text-xs text-stone-400">
-                    انقر على أي كيان مرتبط للانتقال إليه
-                  </span>
+                    {t("navigation.labels.txt_5dc573")}</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -725,11 +711,9 @@ export default function App() {
                 <div className="mt-6 p-4 rounded-xl bg-stone-900 text-stone-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div>
                     <div className="text-xs font-bold text-amber-400 mb-0.5">
-                      ضمانة مصدر الحقيقة وسيادة الخادم
-                    </div>
+                      {t("navigation.labels.txt_6dd618")}</div>
                     <div className="text-xs text-stone-300">
-                      كل ارتباط بين كيانين يتم التحقق منه خادومياً داخل الـ Transactions في Firestore ولا يُترك القرار للواجهة الأمامية مطلقاً.
-                    </div>
+                      {t("navigation.labels.txt_791f1b")}</div>
                   </div>
                   <button
                     onClick={() => {
@@ -738,7 +722,7 @@ export default function App() {
                     }}
                     className="shrink-0 px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-medium border border-stone-700 flex items-center gap-1.5 transition-colors"
                   >
-                    <span>عرض كود المعمارية</span>
+                    <span>{t("navigation.labels.view")}</span>
                     <ChevronLeft className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -754,11 +738,10 @@ export default function App() {
               <div className="max-w-3xl">
                 <h2 className="text-lg font-bold text-stone-900 flex items-center gap-2">
                   <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                  <span>المبادئ المعمارية الإلزامية الصارمة (The 12 Invariants)</span>
+                  <span>{t("navigation.labels.txt_4c8195")}</span>
                 </h2>
                 <p className="text-xs text-stone-600 mt-1 leading-relaxed">
-                  هذه المبادئ الـ 12 هي السقف الهندسي الحاكم لكامل المنظومة. لا يُسمح بأي استثناء أو خرق لأي مبدأ في أي مرحلة تطويرية أو كود تنفيذي.
-                </p>
+                  {t("navigation.labels.txt_17c5e1")}</p>
               </div>
             </div>
 
@@ -787,7 +770,7 @@ export default function App() {
                   
                   <div className="mt-4 pt-3 border-t border-stone-100 flex items-center gap-1.5 text-[11px] font-medium text-emerald-700">
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>مطبق ومحمي في الكود المعماري</span>
+                    <span>{t("navigation.labels.txt_c37ba7")}</span>
                   </div>
                 </div>
               ))}
@@ -802,8 +785,7 @@ export default function App() {
             <div className="lg:col-span-1 space-y-2">
               <div className="bg-white rounded-xl border border-stone-200 p-3 shadow-xs">
                 <div className="text-xs font-bold text-stone-900 px-2 py-1 mb-1">
-                  المستندات المعمارية المعتمدة (docs/)
-                </div>
+                  {t("navigation.labels.txt_8cf69f")}</div>
                 <div className="space-y-1">
                   {ARCHITECTURE_DOCS.map(doc => {
                     const isSelected = doc.id === selectedDocId;
@@ -835,7 +817,7 @@ export default function App() {
               <div className="bg-stone-50 rounded-xl border border-stone-200 p-4 text-xs text-stone-600">
                 <div className="font-bold text-stone-900 mb-1 flex items-center gap-1.5">
                   <FileText className="w-3.5 h-3.5 text-stone-500" />
-                  <span>ملخص المستند:</span>
+                  <span>{t("navigation.labels.txt_72b405")}</span>
                 </div>
                 <p className="leading-relaxed">
                   {selectedDoc.summaryAr}
@@ -866,8 +848,7 @@ export default function App() {
 
                 <div className="flex items-center gap-2 text-xs">
                   <span className="text-stone-500">
-                    لا يحتوي على بيانات وهمية (Mock Data) أو واجهات مؤقتة
-                  </span>
+                    {t("navigation.labels.txt_3a0110")}</span>
                 </div>
               </div>
 
@@ -889,7 +870,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <span className="font-bold text-stone-800">Q Saudi Work Follow</span>
             <span>•</span>
-            <span>هندسة معمارية للمشاريع الكبرى وسلاسل الإمداد الميدانية بالمملكة</span>
+            <span>{t("navigation.labels.txt_276201")}</span>
           </div>
           <div className="flex items-center gap-3">
             <span>Firestore SSOT</span>

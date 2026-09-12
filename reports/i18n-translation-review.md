@@ -1,8 +1,8 @@
 # Professional Translation Human Review Queue (BLOCK 43)
 
-**Generated At:** 2026-09-12T08:57:59.759Z
-**Total Catalog Entries Processed:** 9410
-**Total Proposals Requiring Human Review:** 9405 (99.9%)
+**Generated At:** 2026-09-12T10:19:03.327Z
+**Total Catalog Entries Processed:** 9429
+**Total Proposals Requiring Human Review:** 9424 (99.9%)
 
 ## Review Instructions for Translators & Enterprise Auditors
 
@@ -19,9 +19,9 @@
 | `DOMAIN_TERM` | **0** | Domain-specific terminology requiring operational verification by enterprise domain leads |
 | `INTERPOLATION_RISK` | **8** | Complex dynamic placeholders or parameter sequences requiring syntax verification |
 | `PLURALIZATION_RISK` | **141** | Quantities requiring 6 Arabic plural forms aligned with target language plural rules |
-| `REPORT_EXPORT_RISK` | **1405** | Report column or export header requiring separation of internal data key from display label |
-| `BUSINESS_DATA_RISK` | **832** | Formulas, rates, or business calculations requiring strict identifier preservation |
-| `LOW_CONFIDENCE` | **6185** | Ambiguous or composite phrases generated with low statistical confidence |
+| `REPORT_EXPORT_RISK` | **1466** | Report column or export header requiring separation of internal data key from display label |
+| `BUSINESS_DATA_RISK` | **816** | Formulas, rates, or business calculations requiring strict identifier preservation |
+| `LOW_CONFIDENCE` | **6159** | Ambiguous or composite phrases generated with low statistical confidence |
 | `DIRECTIONAL_RISK` | **0** | Mixed-direction content (Arabic and Latin/numbers) needing directional inspection |
 | `VALIDATION_FAILURE` | **0** | Proposal encountered parameter mismatch, missing tokens, or structural defects |
 | `OTHER` | **0** | General review requirements flagged by migration pipeline |
@@ -167,7 +167,7 @@
 | `imports.labels.txt_342ca6` | "إجمالي السجلات الأصلية المؤرشفة:" | "إجمالي السجلات الأصلية المؤرشفة:" | "إجمالي السجلات الأصلية المؤرشفة:" | Validate plural rules for Arabic (zero, one, two, few, many, other) vs English/Urdu (one, other). |
 | ... | *and 116 more items in this queue* | | | |
 
-### 1. Reason: `REPORT_EXPORT_RISK` (1405 items)
+### 1. Reason: `REPORT_EXPORT_RISK` (1466 items)
 
 > Report column or export header requiring separation of internal data key from display label
 
@@ -198,9 +198,9 @@
 | `dashboard.columns.prjNeomNorth01` | "PRJ-NEOM-NORTH-01" | "PRJ-NEOM-NORTH-01" | "PRJ-NEOM-NORTH-01" | Ensure internal key 'prjNeomNorth01' remains untranslated; translate presentation label only. |
 | `dashboard.fields.location` | "الفارق بين وزن الموقع ووزن المقلع" | "الفارق بين وزن Location ووزن المقلع" | "الفارق بين وزن مقام ووزن المقلع" | Ensure internal key 'location' remains untranslated; translate presentation label only. |
 | `dashboard.fields.price` | "العدد × السعر" | "العدد × Price" | "العدد × قیمت" | Ensure internal key 'price' remains untranslated; translate presentation label only. |
-| ... | *and 1380 more items in this queue* | | | |
+| ... | *and 1441 more items in this queue* | | | |
 
-### 1. Reason: `BUSINESS_DATA_RISK` (832 items)
+### 1. Reason: `BUSINESS_DATA_RISK` (816 items)
 
 > Formulas, rates, or business calculations requiring strict identifier preservation
 
@@ -231,9 +231,9 @@
 | `dashboard.labels.txt_b1749a` | "تسويات الأطنان (Ton-based Settlement)" | "تسويات الtons (Ton-based Settlement)" | "تسويات الٹن (Ton-based Settlement)" | Protect financial or scale tokens: [TON]. |
 | `dashboard.status.success` | "تم تجميع الأداء بنجاح لـ ${carrierPerf.length} ناقلين." | "تم تجميع الأداء بSuccess لـ ${carrierPerf.length} ناقلين." | "تم تجميع الأداء بکامیاب لـ ${carrierPerf.length} ناقلين." | Protect financial or scale tokens: []. |
 | `dashboard.status.trips` | "تم ترتيب الرحلات النشطة قيد الترحيل في مقدمة لوحة البوابات الحية." | "تم ترتيب Trips الActiveة قيد الترحيل في مقدمة لوحة البوابات الحية." | "تم ترتيب ٹرپس الفعالة قيد الترحيل في مقدمة لوحة البوابات الحية." | Protect financial or scale tokens: []. |
-| ... | *and 807 more items in this queue* | | | |
+| ... | *and 791 more items in this queue* | | | |
 
-### 1. Reason: `LOW_CONFIDENCE` (6185 items)
+### 1. Reason: `LOW_CONFIDENCE` (6159 items)
 
 > Ambiguous or composite phrases generated with low statistical confidence
 
@@ -264,5 +264,5 @@
 | `carriers.labels.projects` | "projects" | "projects" | "projects" | Review phrasing carefully; replace with verified domain phrase if needed. |
 | `carriers.labels.react` | "react" | "react" | "react" | Review phrasing carefully; replace with verified domain phrase if needed. |
 | `carriers.labels.trucksPricing` | "معرف وحيد للربط مع الشاحنات وقواعد التسعير" | "معرف وحيد للربط مع Trucks وقواعد التسعير" | "معرف وحيد للربط مع ٹرکس وقواعد التسعير" | Review phrasing carefully; replace with verified domain phrase if needed. |
-| ... | *and 6160 more items in this queue* | | | |
+| ... | *and 6134 more items in this queue* | | | |
 

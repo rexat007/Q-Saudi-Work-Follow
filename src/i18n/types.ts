@@ -23,9 +23,9 @@ export type FoundationTranslationKey =
   | 'navigation.language.ur'
   | 'example.count';
 
-export type TranslationKey = FoundationTranslationKey;
+export type TranslationKey = FoundationTranslationKey | (string & {});
 
-export type TranslationDictionary = Record<TranslationKey, string>;
+export type TranslationDictionary = Record<string, string>;
 
 export interface I18nContextValue {
   locale: Locale;
